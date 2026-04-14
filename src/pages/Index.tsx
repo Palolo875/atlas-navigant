@@ -1,16 +1,47 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useCallback } from "react";
+import MapView from "@/components/MapView";
+import SearchBar from "@/components/SearchBar";
+import LocationDrawer from "@/components/LocationDrawer";
+import { reverseGeocode, type GeoResult } from "@/lib/api";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+export default function Index() {
+  const [selectedLocation, setSelectedLocation] = useState<GeoResult | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [flyTo, setFlyTo] = useState<{ lat: number; lon: number } | null>(null);
+  const [markerPos, setMarkerPos] = useState<{ lat: number; lon: number } | null>(null);
+
+  const handleSearchSelect = useCallback((result: GeoResult) => {
+    setSelectedLocation(result);
+    setFlyTo({ lat: result.lat, lon: result.lon });
+    setMarkerPos({ lat: result.lat, lon: result.lon });
+    setDrawerOpen(true);
+  }, []);
+
+  const handleMapClick = useCallback(async (lat: number, lon: number) => {
+    setMarkerPos({ lat, lon });
+    setDrawerOpen(true);
+    const geo = await reverseGeocode(lat, lon);
+    if (geo) {
+      setSelectedLocation(geo);
+    } else {
+      setSelectedLocation({
+        name: "Position selectionnee",
+        country: "",
+        lat,
+        lon,
+      });
+    }
+  }, []);
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="relative w-full h-screen overflow-hidden">
+      <MapView onMapClick={handleMapClick} flyTo={flyTo} markerPos={markerPos} />
+      <SearchBar onSelect={handleSearchSelect} />
+      <LocationDrawer
+        location={selectedLocation}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+      />
     </div>
   );
-};
-
-const Index = PlaceholderIndex;
-
-export default Index;
+}
