@@ -739,6 +739,15 @@ function NearbyTab({ pois, earthquakes, location }: { pois: OverpassPOI[]; earth
 // ====== NATURE TAB ======
 
 function NatureTab({ species, location }: { species: GBIFSpecies[]; location: GeoResult }) {
+  const kingdoms = useMemo(() => {
+    const k: Record<string, number> = {};
+    species.forEach((s) => {
+      const key = s.kingdom || "Inconnu";
+      k[key] = (k[key] || 0) + 1;
+    });
+    return k;
+  }, [species]);
+
   if (species.length === 0) return <EmptyState text="Aucune observation d'especes recensee dans cette zone." />;
 
   const kingdoms = useMemo(() => {
