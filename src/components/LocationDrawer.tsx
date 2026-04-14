@@ -2,24 +2,9 @@ import { useState, useEffect } from "react";
 import { Drawer } from "vaul";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Location01Icon,
   Navigation01Icon,
   ArrowRight01Icon,
-  Thermometer01Icon,
-  WindIcon,
-  DropIcon,
-  Sun01Icon,
-  Cloud01Icon,
-  ViewIcon,
-  ArrowDown01Icon,
-  Globe02Icon,
-  BookOpen01Icon,
-  Hospital01Icon,
-  Alert01Icon,
-  Leaf01Icon,
   InformationCircleIcon,
-  CompassIcon,
-  TimeScheduleIcon,
 } from "@hugeicons/core-free-icons";
 import {
   type GeoResult,
