@@ -228,9 +228,9 @@ function LoadingSpinner() {
   );
 }
 
-function SectionCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function SectionCard({ children, className = "", style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
-    <div className={`border border-border rounded-xl p-4 mb-3 bg-card ${className}`}>
+    <div className={`border border-border rounded-xl p-4 mb-3 bg-card ${className}`} style={style}>
       {children}
     </div>
   );
