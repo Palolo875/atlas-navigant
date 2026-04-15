@@ -45,13 +45,13 @@ interface LocationDrawerProps {
 
 type TabId = "weather" | "air" | "culture" | "wiki" | "nearby" | "nature";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "weather", label: "Meteo" },
-  { id: "air", label: "Air" },
-  { id: "culture", label: "Culture" },
-  { id: "wiki", label: "Savoir" },
-  { id: "nearby", label: "Proximite" },
-  { id: "nature", label: "Nature" },
+const TABS: { id: TabId; label: string; icon: any }[] = [
+  { id: "weather", label: "Meteo", icon: Sun01Icon },
+  { id: "air", label: "Air", icon: Leaf01Icon },
+  { id: "culture", label: "Culture", icon: Globe02Icon },
+  { id: "wiki", label: "Savoir", icon: InformationCircleIcon },
+  { id: "nearby", label: "Proximite", icon: Location01Icon },
+  { id: "nature", label: "Nature", icon: Leaf01Icon },
 ];
 
 export default function LocationDrawer({ location, open, onOpenChange }: LocationDrawerProps) {
@@ -103,59 +103,64 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
   };
 
   return (
-    <Drawer.Root open={open} onOpenChange={onOpenChange} snapPoints={[0.38, 0.92]} activeSnapPoint={undefined}>
+    <Drawer.Root open={open} onOpenChange={onOpenChange} snapPoints={[0.4, 0.94]} activeSnapPoint={undefined}>
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-foreground/5 z-40" />
-        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-xl bg-card border-t border-border max-h-[94vh]">
+        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl bg-card max-h-[94vh]" style={{ boxShadow: "0 -4px 40px rgba(0,0,0,0.08)" }}>
           {/* Handle */}
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-border" />
+          <div className="flex justify-center pt-3 pb-2">
+            <div className="w-9 h-[3px] rounded-full bg-border" />
           </div>
 
-          {/* Header */}
-          <div className="px-5 pb-3 border-b border-border">
-            <div className="flex items-start justify-between gap-3">
+          {/* Hero Header */}
+          <div className="px-5 pb-4">
+            {/* Location name + navigate */}
+            <div className="flex items-start justify-between gap-3 mb-1">
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-serif font-semibold text-foreground truncate leading-tight">
+                <h2 className="font-serif text-xl font-semibold text-foreground leading-[1.1] tracking-tight">
                   {location.name}
                 </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {[location.state, location.country].filter(Boolean).join(", ")}
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-xs text-muted-foreground leading-tight">
+                    {[location.state, location.country].filter(Boolean).join(", ")}
+                  </span>
                   {location.type && (
-                    <span className="ml-2 inline-block px-1.5 py-0.5 rounded bg-secondary text-[10px] uppercase tracking-widest font-medium">
+                    <span className="inline-block px-1.5 py-[1px] rounded bg-secondary text-[9px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
                       {location.type}
                     </span>
                   )}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-1 font-mono">
-                  {location.lat.toFixed(5)}, {location.lon.toFixed(5)}
-                  {weather && ` · ${Math.round(weather.elevation)}m alt.`}
-                </p>
+                </div>
               </div>
               <button
                 onClick={handleNavigate}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity flex-shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
                 style={{ borderRadius: "6px" }}
               >
-                <HugeiconsIcon icon={Navigation01Icon} size={14} />
+                <HugeiconsIcon icon={Navigation01Icon} size={13} />
                 Naviguer
               </button>
             </div>
 
-            {/* Quick weather summary */}
+            {/* Hero weather strip */}
             {weather && wInfo && (
-              <div className="flex items-center gap-3 mt-3">
-                <span className="text-3xl font-serif font-semibold leading-none">
-                  {Math.round(weather.current.temperature)}&deg;
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-xs font-medium text-foreground">{wInfo.label}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Ressenti {Math.round(weather.current.feelsLike)}&deg; · Vent {weather.current.windSpeed} km/h
+              <div className="flex items-end gap-4 mt-4 pb-3 border-b border-border">
+                <div className="flex items-baseline gap-1">
+                  <span className="font-serif text-[42px] font-semibold leading-none tracking-tighter text-foreground">
+                    {Math.round(weather.current.temperature)}
+                  </span>
+                  <span className="text-lg text-muted-foreground font-light">&deg;C</span>
+                </div>
+                <div className="flex flex-col gap-0.5 pb-1 flex-1 min-w-0">
+                  <span className="text-sm font-medium text-foreground leading-tight">{wInfo.label}</span>
+                  <span className="text-[11px] text-muted-foreground leading-tight">
+                    Ressenti {Math.round(weather.current.feelsLike)}&deg; · {weather.current.windSpeed} km/h {windDirectionToLabel(weather.current.windDirection)}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                    {location.lat.toFixed(4)}, {location.lon.toFixed(4)} · {Math.round(weather.elevation)}m
                   </span>
                 </div>
                 {airQuality && (
-                  <div className="ml-auto">
+                  <div className="flex-shrink-0 pb-1">
                     <AQIBadge aqi={airQuality.aqi} />
                   </div>
                 )}
@@ -163,22 +168,27 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
             )}
           </div>
 
-          {/* Tabs */}
-          <div className="flex border-b border-border overflow-x-auto hide-scrollbar">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors ${
-                  activeTab === tab.id
-                    ? "text-foreground border-b-2 border-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          {/* Tabs — icon + text, pill style */}
+          <div className="px-4 pb-2">
+            <div className="flex gap-1.5 overflow-x-auto hide-scrollbar">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
+                    activeTab === tab.id
+                      ? "bg-foreground text-primary-foreground"
+                      : "bg-secondary/60 text-muted-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <HugeiconsIcon icon={tab.icon} size={13} />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
+
+          <div className="w-full h-px bg-border" />
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto hide-scrollbar px-5 py-4">
@@ -198,6 +208,8 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
                 {activeTab === "nature" && <NatureTab species={species} location={location} />}
               </>
             )}
+            {/* Bottom safe area */}
+            <div className="h-6" />
           </div>
         </Drawer.Content>
       </Drawer.Portal>
@@ -209,15 +221,16 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
 
 function LoadingSpinner() {
   return (
-    <div className="flex items-center justify-center py-12">
+    <div className="flex flex-col items-center justify-center py-16 gap-3">
       <div className="w-5 h-5 border-2 border-border border-t-foreground rounded-full animate-spin" />
+      <span className="text-[11px] text-muted-foreground">Chargement des donnees</span>
     </div>
   );
 }
 
-function SectionCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function SectionCard({ children, className = "", style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
-    <div className={`border border-border rounded-lg p-4 mb-3 bg-card ${className}`}>
+    <div className={`border border-border rounded-xl p-4 mb-3 bg-card ${className}`} style={style}>
       {children}
     </div>
   );
@@ -232,7 +245,7 @@ function Tag({ children, variant = "blue" }: { children: React.ReactNode; varian
     purple: "bg-pastel-purple-bg text-pastel-purple-text",
   };
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] uppercase tracking-widest font-medium ${styles[variant]}`}>
+    <span className={`inline-block px-2.5 py-[3px] rounded-full text-[9px] uppercase tracking-[0.06em] font-semibold ${styles[variant]}`}>
       {children}
     </span>
   );
@@ -240,25 +253,30 @@ function Tag({ children, variant = "blue" }: { children: React.ReactNode; varian
 
 function DataRow({ label, value, mono = false }: { label: string; value: string | number; mono?: boolean }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-border last:border-b-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={`text-sm font-medium text-right max-w-[55%] ${mono ? "font-mono text-xs" : ""}`}>{value}</span>
+    <div className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span className={`text-[12px] font-medium text-right max-w-[55%] ${mono ? "font-mono text-[11px]" : ""}`}>{value}</span>
     </div>
   );
 }
 
 function NarrativeBlock({ text, icon }: { text: string; icon?: any }) {
   return (
-    <div className="flex items-start gap-2.5 py-2 border-b border-border last:border-b-0">
-      <HugeiconsIcon icon={icon || InformationCircleIcon} size={14} className="text-muted-foreground mt-0.5 flex-shrink-0" />
-      <p className="text-xs leading-relaxed text-foreground">{text}</p>
+    <div className="flex items-start gap-3 py-2.5 border-b border-border last:border-b-0">
+      <div className="w-6 h-6 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0 mt-0.5">
+        <HugeiconsIcon icon={icon || InformationCircleIcon} size={13} className="text-muted-foreground" />
+      </div>
+      <p className="text-[11.5px] leading-[1.6] text-foreground">{text}</p>
     </div>
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
-    <div className="text-xs text-muted-foreground uppercase tracking-widest mb-3 font-medium">{children}</div>
+    <div className="mb-3">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-[0.08em] font-semibold">{children}</div>
+      {sub && <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>}
+    </div>
   );
 }
 
@@ -271,14 +289,22 @@ function AQIBadge({ aqi }: { aqi: number }) {
     purple: "bg-pastel-purple-bg text-pastel-purple-text",
   };
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider ${colorMap[info.color]}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider ${colorMap[info.color]}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
       AQI {aqi}
     </span>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
-  return <p className="text-sm text-muted-foreground py-6 text-center">{text}</p>;
+  return (
+    <div className="flex flex-col items-center justify-center py-12 gap-2">
+      <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+        <HugeiconsIcon icon={InformationCircleIcon} size={18} className="text-muted-foreground" />
+      </div>
+      <p className="text-[11px] text-muted-foreground text-center max-w-[220px] leading-relaxed">{text}</p>
+    </div>
+  );
 }
 
 // ====== WEATHER TAB ======
@@ -289,13 +315,13 @@ function WeatherTab({ weather, narratives }: { weather: WeatherData; narratives:
   const uvInfo = getUVLabel(weather.current.uvIndex);
 
   return (
-    <div className="space-y-3 animate-fade-in-up">
+    <div className="space-y-3">
       {/* Narratives */}
       {narratives.length > 0 && (
-        <SectionCard>
-          <div className="flex items-center gap-2 mb-2">
+        <SectionCard className="animate-fade-in-up">
+          <div className="flex items-center gap-2 mb-3">
             <Tag variant="blue">Signal</Tag>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Analyse contextuelle</span>
+            <span className="text-[10px] text-muted-foreground tracking-wide">Analyse contextuelle</span>
           </div>
           {narratives.map((n, i) => (
             <NarrativeBlock key={i} text={n} icon={Alert01Icon} />
@@ -303,88 +329,112 @@ function WeatherTab({ weather, narratives }: { weather: WeatherData; narratives:
         </SectionCard>
       )}
 
-      {/* Current grid */}
-      <SectionCard>
+      {/* Conditions bento grid */}
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
         <SectionTitle>Conditions actuelles</SectionTitle>
-        <div className="grid grid-cols-2 gap-3">
-          <MiniStat label="Temperature" value={`${weather.current.temperature}\u00B0C`} />
-          <MiniStat label="Ressenti" value={`${weather.current.feelsLike}\u00B0C`} />
-          <MiniStat label="Humidite" value={`${weather.current.humidity}%`} />
-          <MiniStat label="Vent" value={`${weather.current.windSpeed} km/h ${windDirectionToLabel(weather.current.windDirection)}`} />
+        <div className="grid grid-cols-2 gap-2">
+          <MiniStat label="Humidite" value={`${weather.current.humidity}%`} accent={weather.current.humidity > 80} />
           <MiniStat label="Pression" value={`${Math.round(weather.current.pressure)} hPa`} />
+          <MiniStat label="Vent" value={`${weather.current.windSpeed} km/h`} sub={windDirectionToLabel(weather.current.windDirection)} accent={weather.current.windSpeed > 30} />
           <MiniStat label="Nuages" value={`${weather.current.cloudCover}%`} />
-          <MiniStat label="Precipitations" value={`${weather.current.precipitation} mm`} />
+          <MiniStat label="Precipitations" value={`${weather.current.precipitation} mm`} accent={weather.current.precipitation > 0} />
           <MiniStat
             label="Visibilite"
             value={weather.current.visibility >= 1000
               ? `${(weather.current.visibility / 1000).toFixed(1)} km`
               : `${weather.current.visibility} m`}
+            accent={weather.current.visibility < 2000}
           />
         </div>
       </SectionCard>
 
-      {/* UV + Altitude */}
-      <SectionCard>
-        <SectionTitle>Indices</SectionTitle>
-        <DataRow label={`UV (${uvInfo.label})`} value={weather.current.uvIndex} mono />
-        <DataRow label="Altitude" value={`${Math.round(weather.elevation)} m`} mono />
-        <div className="mt-2 text-[10px] text-muted-foreground leading-relaxed">{uvInfo.signal}</div>
-      </SectionCard>
+      {/* UV + Altitude — horizontal duo */}
+      <div className="grid grid-cols-2 gap-2 animate-fade-in-up" style={{ animationDelay: "120ms" }}>
+        <SectionCard className="!mb-0">
+          <div className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] font-medium mb-1">Indice UV</div>
+          <div className="text-2xl font-serif font-semibold leading-none">{weather.current.uvIndex}</div>
+          <div className="mt-1.5">
+            <Tag variant={weather.current.uvIndex > 6 ? "red" : weather.current.uvIndex > 3 ? "yellow" : "green"}>{uvInfo.label}</Tag>
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">{uvInfo.signal}</div>
+        </SectionCard>
+        <SectionCard className="!mb-0">
+          <div className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] font-medium mb-1">Altitude</div>
+          <div className="text-2xl font-serif font-semibold leading-none">{Math.round(weather.elevation)}<span className="text-sm font-normal text-muted-foreground ml-0.5">m</span></div>
+          <div className="mt-1.5">
+            <Tag variant={weather.elevation > 2500 ? "red" : weather.elevation > 1000 ? "yellow" : "green"}>
+              {weather.elevation > 2500 ? "Haute alt." : weather.elevation > 1000 ? "Montagne" : "Plaine"}
+            </Tag>
+          </div>
+          {weather.elevation > 2500 && (
+            <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">Oxygene reduit. Hydratez-vous.</div>
+          )}
+        </SectionCard>
+      </div>
 
       {/* Ephemerides */}
       {todaySunrise && (
-        <SectionCard>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
           <SectionTitle>Ephemerides</SectionTitle>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <HugeiconsIcon icon={ArrowUp01Icon} size={14} className="text-pastel-yellow-text" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-pastel-yellow-bg flex items-center justify-center">
+                <HugeiconsIcon icon={ArrowUp01Icon} size={15} className="text-pastel-yellow-text" />
+              </div>
               <div>
-                <div className="text-[10px] text-muted-foreground">Lever</div>
-                <div className="text-sm font-mono font-medium">
+                <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Lever</div>
+                <div className="text-sm font-mono font-semibold">
                   {new Date(todaySunrise).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <HugeiconsIcon icon={ArrowDown01Icon} size={14} className="text-pastel-red-text" />
-              <div>
-                <div className="text-[10px] text-muted-foreground">Coucher</div>
-                <div className="text-sm font-mono font-medium">
-                  {new Date(todaySunset).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
-                </div>
-              </div>
-            </div>
-            <div className="ml-auto text-[10px] text-muted-foreground">
+
+            {/* Day duration center */}
+            <div className="text-center px-2">
               {(() => {
                 const rise = new Date(todaySunrise).getTime();
                 const set = new Date(todaySunset).getTime();
                 const h = Math.floor((set - rise) / 3600000);
                 const m = Math.floor(((set - rise) % 3600000) / 60000);
-                return `${h}h${m.toString().padStart(2, "0")} de jour`;
+                return (
+                  <>
+                    <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Duree</div>
+                    <div className="text-xs font-mono font-semibold">{h}h{m.toString().padStart(2, "0")}</div>
+                  </>
+                );
               })()}
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <div>
+                <div className="text-[9px] text-muted-foreground uppercase tracking-wide text-right">Coucher</div>
+                <div className="text-sm font-mono font-semibold">
+                  {new Date(todaySunset).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
+                </div>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-pastel-red-bg flex items-center justify-center">
+                <HugeiconsIcon icon={ArrowDown01Icon} size={15} className="text-pastel-red-text" />
+              </div>
             </div>
           </div>
         </SectionCard>
       )}
 
-      {/* Hourly */}
-      <SectionCard>
+      {/* Hourly scroll */}
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>
         <SectionTitle>Prochaines heures</SectionTitle>
-        <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
+        <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-1 -mx-1">
           {weather.hourly.slice(0, 12).map((h, i) => {
             const hInfo = weatherCodeToLabel(h.weatherCode);
             return (
-              <div key={i} className="flex flex-col items-center gap-1.5 min-w-[50px]">
+              <div key={i} className="flex flex-col items-center gap-1.5 min-w-[52px] py-2 px-1.5 rounded-lg hover:bg-secondary/50 transition-colors">
                 <span className="text-[10px] text-muted-foreground font-mono">
                   {new Date(h.time).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
                 </span>
-                <span className="text-[9px] text-muted-foreground text-center leading-tight">{hInfo.label.split(" ")[0]}</span>
+                <span className="text-[15px] leading-none">{getWeatherSymbol(h.weatherCode)}</span>
                 <span className="text-xs font-semibold">{Math.round(h.temperature)}&deg;</span>
                 {h.precipitation > 0 && (
-                  <span className="text-[9px] text-pastel-blue-text font-mono">{h.precipitation}mm</span>
-                )}
-                {h.windSpeed > 20 && (
-                  <span className="text-[9px] text-muted-foreground font-mono">{Math.round(h.windSpeed)}km/h</span>
+                  <span className="text-[9px] text-pastel-blue-text font-mono leading-none">{h.precipitation}mm</span>
                 )}
               </div>
             );
@@ -393,7 +443,7 @@ function WeatherTab({ weather, narratives }: { weather: WeatherData; narratives:
       </SectionCard>
 
       {/* 7-day */}
-      <SectionCard>
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "300ms" }}>
         <SectionTitle>Previsions 7 jours</SectionTitle>
         {weather.daily.map((d, i) => {
           const dayInfo = weatherCodeToLabel(d.weatherCode);
@@ -401,26 +451,28 @@ function WeatherTab({ weather, narratives }: { weather: WeatherData; narratives:
           const allMax = Math.max(...weather.daily.map((x) => x.tempMax));
           const range = allMax - allMin || 1;
           return (
-            <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-b-0 gap-2">
-              <span className="text-xs font-medium w-14 flex-shrink-0">
+            <div key={i} className="flex items-center py-2.5 border-b border-border last:border-b-0 gap-2">
+              <span className="text-[11px] font-medium w-[44px] flex-shrink-0">
                 {i === 0 ? "Auj." : new Date(d.date).toLocaleDateString("fr", { weekday: "short" })}
               </span>
-              <span className="text-[10px] text-muted-foreground flex-1 truncate">{dayInfo.label}</span>
-              {d.precipitationSum > 0 && (
-                <span className="text-[9px] text-pastel-blue-text font-mono flex-shrink-0">{d.precipitationSum.toFixed(1)}mm</span>
+              <span className="text-[14px] w-5 text-center flex-shrink-0">{getWeatherSymbol(d.weatherCode)}</span>
+              {d.precipitationSum > 0 ? (
+                <span className="text-[9px] text-pastel-blue-text font-mono w-[34px] text-right flex-shrink-0">{d.precipitationSum.toFixed(1)}mm</span>
+              ) : (
+                <span className="w-[34px] flex-shrink-0" />
               )}
-              <div className="flex gap-1.5 items-center flex-shrink-0">
-                <span className="text-[10px] font-mono text-muted-foreground">{Math.round(d.tempMin)}&deg;</span>
-                <div className="w-10 h-1 bg-secondary rounded-full relative">
+              <div className="flex gap-1.5 items-center flex-1 justify-end">
+                <span className="text-[10px] font-mono text-muted-foreground w-[22px] text-right">{Math.round(d.tempMin)}&deg;</span>
+                <div className="w-14 h-[5px] bg-secondary rounded-full relative overflow-hidden">
                   <div
-                    className="absolute h-1 bg-foreground rounded-full"
+                    className="absolute h-full bg-foreground/70 rounded-full"
                     style={{
                       left: `${((d.tempMin - allMin) / range) * 100}%`,
                       right: `${100 - ((d.tempMax - allMin) / range) * 100}%`,
                     }}
                   />
                 </div>
-                <span className="text-[10px] font-mono font-medium">{Math.round(d.tempMax)}&deg;</span>
+                <span className="text-[10px] font-mono font-semibold w-[22px]">{Math.round(d.tempMax)}&deg;</span>
               </div>
             </div>
           );
@@ -430,13 +482,28 @@ function WeatherTab({ weather, narratives }: { weather: WeatherData; narratives:
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function MiniStat({ label, value, sub, accent = false }: { label: string; value: string; sub?: string; accent?: boolean }) {
   return (
-    <div className="bg-secondary/50 rounded-lg p-2.5">
-      <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</div>
-      <div className="text-sm font-medium mt-0.5 font-mono">{value}</div>
+    <div className={`rounded-xl p-3 ${accent ? "bg-pastel-yellow-bg/50" : "bg-secondary/40"}`}>
+      <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">{label}</div>
+      <div className="text-[13px] font-semibold mt-1 font-mono leading-tight">{value}</div>
+      {sub && <div className="text-[9px] text-muted-foreground mt-0.5">{sub}</div>}
     </div>
   );
+}
+
+/** Minimal text-based weather symbols (no emoji) */
+function getWeatherSymbol(code: number): string {
+  if (code === 0 || code === 1) return "\u2600"; // sun ☀
+  if (code === 2) return "\u26C5"; // sun behind cloud ⛅
+  if (code === 3) return "\u2601"; // cloud ☁
+  if (code === 45 || code === 48) return "\u2588"; // fog block
+  if (code >= 51 && code <= 55) return "\u2022"; // drizzle dot
+  if (code >= 61 && code <= 65) return "\u2602"; // rain ☂
+  if (code >= 71 && code <= 75) return "\u2744"; // snow ❄
+  if (code >= 80 && code <= 82) return "\u2602";
+  if (code >= 95) return "\u26A1"; // lightning ⚡
+  return "\u2601";
 }
 
 // ====== AIR TAB ======
@@ -447,45 +514,57 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
   const aqInfo = getAQILabel(airQuality.aqi);
 
   const pollutants = [
-    { key: "PM2.5", value: airQuality.pm25, unit: "\u00B5g/m\u00B3", desc: "Particules fines respirables, penetrent les poumons", threshold: 25, },
-    { key: "PM10", value: airQuality.pm10, unit: "\u00B5g/m\u00B3", desc: "Particules en suspension, poussiere, pollen", threshold: 50, },
-    { key: "NO\u2082", value: airQuality.no2, unit: "\u00B5g/m\u00B3", desc: "Dioxyde d'azote, source : trafic routier", threshold: 200, },
-    { key: "O\u2083", value: airQuality.ozone, unit: "\u00B5g/m\u00B3", desc: "Ozone tropospherique, irritant respiratoire", threshold: 180, },
-    { key: "SO\u2082", value: airQuality.so2, unit: "\u00B5g/m\u00B3", desc: "Dioxyde de soufre, source : industrie", threshold: 350, },
-    { key: "CO", value: airQuality.co, unit: "\u00B5g/m\u00B3", desc: "Monoxyde de carbone, gaz inodore dangereux", threshold: 10000, },
+    { key: "PM2.5", value: airQuality.pm25, unit: "\u00B5g/m\u00B3", desc: "Particules fines respirables", threshold: 25 },
+    { key: "PM10", value: airQuality.pm10, unit: "\u00B5g/m\u00B3", desc: "Particules en suspension", threshold: 50 },
+    { key: "NO\u2082", value: airQuality.no2, unit: "\u00B5g/m\u00B3", desc: "Dioxyde d'azote, trafic routier", threshold: 200 },
+    { key: "O\u2083", value: airQuality.ozone, unit: "\u00B5g/m\u00B3", desc: "Ozone tropospherique", threshold: 180 },
+    { key: "SO\u2082", value: airQuality.so2, unit: "\u00B5g/m\u00B3", desc: "Dioxyde de soufre, industrie", threshold: 350 },
+    { key: "CO", value: airQuality.co, unit: "\u00B5g/m\u00B3", desc: "Monoxyde de carbone", threshold: 10000 },
   ];
 
   return (
-    <div className="space-y-3 animate-fade-in-up">
-      <SectionCard>
-        <div className="flex items-center gap-2 mb-2">
-          <Tag variant={aqInfo.color}>{aqInfo.label}</Tag>
-          <span className="text-xs text-muted-foreground font-mono">AQI europeen {airQuality.aqi}</span>
+    <div className="space-y-3">
+      {/* Hero AQI */}
+      <SectionCard className="animate-fade-in-up">
+        <div className="flex items-center gap-4 mb-3">
+          <div className="flex flex-col items-center">
+            <div className="text-3xl font-serif font-semibold leading-none">{airQuality.aqi}</div>
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wide mt-1">AQI EU</div>
+          </div>
+          <div className="flex-1">
+            <Tag variant={aqInfo.color}>{aqInfo.label}</Tag>
+            <p className="text-[11px] leading-[1.6] text-muted-foreground mt-2">{aqInfo.signal}</p>
+          </div>
         </div>
-        <NarrativeBlock text={aqInfo.signal} />
       </SectionCard>
 
-      <SectionCard>
-        <SectionTitle>Detail des polluants</SectionTitle>
-        {pollutants.map((p) => (
-          <div key={p.key} className="py-2 border-b border-border last:border-b-0">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium">{p.key}</span>
-              <span className="text-xs font-mono">{p.value.toFixed(1)} {p.unit}</span>
+      {/* Pollutants */}
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
+        <SectionTitle>Polluants</SectionTitle>
+        {pollutants.map((p) => {
+          const ratio = p.value / p.threshold;
+          const color = ratio > 0.7 ? "hsl(var(--pastel-red-text))" : ratio > 0.4 ? "hsl(var(--pastel-yellow-text))" : "hsl(var(--pastel-green-text))";
+          return (
+            <div key={p.key} className="py-2.5 border-b border-border last:border-b-0">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold">{p.key}</span>
+                  <span className="text-[9px] text-muted-foreground">{p.desc}</span>
+                </div>
+                <span className="text-[11px] font-mono font-medium">{p.value.toFixed(1)}</span>
+              </div>
+              <div className="w-full h-[5px] bg-secondary rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(ratio * 100, 100)}%`,
+                    backgroundColor: color,
+                  }}
+                />
+              </div>
             </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">{p.desc}</div>
-            {/* Progress bar */}
-            <div className="w-full h-1 bg-secondary rounded-full mt-1.5">
-              <div
-                className="h-1 rounded-full transition-all"
-                style={{
-                  width: `${Math.min((p.value / p.threshold) * 100, 100)}%`,
-                  backgroundColor: p.value / p.threshold > 0.7 ? "hsl(var(--pastel-red-text))" : p.value / p.threshold > 0.4 ? "hsl(var(--pastel-yellow-text))" : "hsl(var(--pastel-green-text))",
-                }}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </SectionCard>
     </div>
   );
@@ -500,31 +579,31 @@ function CultureTab({ country, location }: { country: CountryData | null; locati
   const currText = country.currencies.map((c) => `${c.name} (${c.symbol})`).join(", ");
 
   return (
-    <div className="space-y-3 animate-fade-in-up">
-      {/* Cultural narrative */}
-      <SectionCard>
-        <div className="flex items-center gap-2 mb-2">
+    <div className="space-y-3">
+      {/* Narrative */}
+      <SectionCard className="animate-fade-in-up">
+        <div className="flex items-center gap-2 mb-3">
           <Tag variant="purple">Identite culturelle</Tag>
         </div>
         <NarrativeBlock text={`Parlez ${langText}. Prevoyez vos ${currText}.`} icon={Globe02Icon} />
         {country.callingCode && (
-          <NarrativeBlock text={`Indicatif telephonique : ${country.callingCode}. Fuseaux horaires : ${country.timezones.slice(0, 3).join(", ")}${country.timezones.length > 3 ? "..." : ""}.`} icon={Clock01Icon} />
+          <NarrativeBlock text={`Indicatif telephonique : ${country.callingCode}. Fuseaux : ${country.timezones.slice(0, 3).join(", ")}${country.timezones.length > 3 ? "..." : ""}.`} icon={Clock01Icon} />
         )}
       </SectionCard>
 
       {/* Country card */}
-      <SectionCard>
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
         <div className="flex items-center gap-3 mb-4">
           {country.flag && (
             <img
               src={country.flag}
               alt={`Drapeau ${country.name}`}
-              className="w-12 h-8 object-cover rounded"
-              style={{ border: "1px solid hsl(0 0% 92%)" }}
+              className="w-14 h-10 object-cover rounded-lg border border-border"
+              loading="lazy"
             />
           )}
           <div>
-            <div className="text-sm font-serif font-semibold">{country.name}</div>
+            <div className="text-sm font-serif font-semibold leading-tight">{country.name}</div>
             <div className="text-[10px] text-muted-foreground">{country.officialName}</div>
           </div>
         </div>
@@ -532,26 +611,22 @@ function CultureTab({ country, location }: { country: CountryData | null; locati
         <DataRow label="Region" value={`${country.subregion}, ${country.region}`} />
         <DataRow label="Population" value={country.population.toLocaleString("fr")} mono />
         <DataRow label="Superficie" value={`${country.area.toLocaleString("fr")} km\u00B2`} mono />
-        <DataRow label="Langues officielles" value={langText} />
+        <DataRow label="Langues" value={langText} />
         <DataRow label="Monnaie" value={currText} />
-        <DataRow label="Fuseaux horaires" value={country.timezones.join(", ")} />
-        <DataRow label="Indicatif" value={country.callingCode} mono />
       </SectionCard>
 
-      {/* Density insight */}
-      <SectionCard>
-        <SectionTitle>Indicateurs</SectionTitle>
-        <DataRow
-          label="Densite de population"
-          value={`${Math.round(country.population / country.area)} hab/km\u00B2`}
-          mono
-        />
-        <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+      {/* Density */}
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
+        <SectionTitle>Densite</SectionTitle>
+        <div className="text-2xl font-serif font-semibold mb-1">
+          {Math.round(country.population / country.area)} <span className="text-sm font-normal text-muted-foreground">hab/km\u00B2</span>
+        </div>
+        <div className="text-[10px] text-muted-foreground leading-relaxed mt-2">
           {country.population / country.area > 200
-            ? "Zone a forte densite. Prevoyez une affluence dans les transports et lieux publics."
+            ? "Zone a forte densite. Affluence probable dans les transports et lieux publics."
             : country.population / country.area > 50
             ? "Densite moderee. Equilibre entre espaces urbains et naturels."
-            : "Faible densite. Grands espaces et tranquillite attendus."}
+            : "Faible densite. Grands espaces et tranquillite."}
         </div>
       </SectionCard>
     </div>
@@ -564,49 +639,52 @@ function WikiTab({ wiki, location }: { wiki: WikiData | null; location: GeoResul
   if (!wiki) return <EmptyState text="Aucun article encyclopedique trouve pour ce lieu." />;
 
   return (
-    <div className="space-y-3 animate-fade-in-up">
-      <SectionCard>
+    <div className="space-y-3">
+      <SectionCard className="animate-fade-in-up">
+        {wiki.thumbnail && (
+          <div className="-mx-4 -mt-4 mb-4">
+            <img
+              src={wiki.thumbnail}
+              alt={wiki.title}
+              className="w-full h-48 object-cover rounded-t-xl"
+              loading="lazy"
+            />
+          </div>
+        )}
         <div className="flex items-center gap-2 mb-3">
           <Tag variant="yellow">Encyclopedie</Tag>
           <span className="text-[10px] text-muted-foreground">Wikipedia</span>
         </div>
-        {wiki.thumbnail && (
-          <img
-            src={wiki.thumbnail}
-            alt={wiki.title}
-            className="w-full h-44 object-cover rounded-lg mb-3"
-            style={{ border: "1px solid hsl(0 0% 92%)" }}
-            loading="lazy"
-          />
-        )}
-        <h3 className="text-base font-serif font-semibold mb-2 leading-tight">{wiki.title}</h3>
-        <p className="text-xs leading-relaxed text-muted-foreground">{wiki.extract}</p>
+        <h3 className="font-serif text-lg font-semibold mb-2 leading-tight tracking-tight">{wiki.title}</h3>
+        <p className="text-[11.5px] leading-[1.7] text-muted-foreground">{wiki.extract}</p>
         {wiki.url && (
           <a
             href={wiki.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 mt-3 text-xs font-medium text-foreground hover:opacity-70 transition-opacity"
+            className="inline-flex items-center gap-1.5 mt-4 text-[11px] font-semibold text-foreground hover:opacity-60 transition-opacity"
           >
-            Lire l'article complet sur Wikipedia
+            Lire l'article complet
             <HugeiconsIcon icon={ArrowRight01Icon} size={12} />
           </a>
         )}
       </SectionCard>
 
-      {/* Coordinates context */}
-      <SectionCard>
-        <SectionTitle>Coordonnees geographiques</SectionTitle>
+      {/* Climate zone */}
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
+        <SectionTitle>Zone climatique</SectionTitle>
         <DataRow label="Latitude" value={location.lat.toFixed(6)} mono />
         <DataRow label="Longitude" value={location.lon.toFixed(6)} mono />
-        <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-          {Math.abs(location.lat) > 60
-            ? "Position en zone polaire. Temperatures extremes et jours de duree variable selon la saison."
-            : Math.abs(location.lat) > 35
-            ? "Zone temperee. Quatre saisons distinctes avec variations climatiques marquees."
-            : Math.abs(location.lat) > 23.5
-            ? "Zone subtropicale. Climat chaud avec saisons humides et seches."
-            : "Zone tropicale. Chaleur constante et humidite elevee toute l'annee."}
+        <div className="mt-3 px-3 py-2.5 rounded-lg bg-secondary/50">
+          <div className="text-[10px] text-muted-foreground leading-relaxed">
+            {Math.abs(location.lat) > 60
+              ? "Position en zone polaire. Temperatures extremes et duree de jour variable."
+              : Math.abs(location.lat) > 35
+              ? "Zone temperee. Quatre saisons distinctes."
+              : Math.abs(location.lat) > 23.5
+              ? "Zone subtropicale. Climat chaud, saisons humides et seches."
+              : "Zone tropicale. Chaleur constante et humidite elevee."}
+          </div>
         </div>
       </SectionCard>
     </div>
@@ -639,25 +717,13 @@ const POI_LABELS: Record<string, string> = {
 };
 
 function NearbyTab({ pois, earthquakes, location }: { pois: OverpassPOI[]; earthquakes: EarthquakeData[]; location: GeoResult }) {
-  // Group POIs by type
-  const grouped = useMemo(() => {
-    const groups: Record<string, OverpassPOI[]> = {};
-    pois.forEach((p) => {
-      const cat = p.type;
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(p);
-    });
-    return groups;
-  }, [pois]);
-
-  // Nearest transport
   const nearestTransport = pois.find((p) => p.type === "stop_position" || p.type === "station");
 
   return (
-    <div className="space-y-3 animate-fade-in-up">
-      {/* Smart narrative */}
+    <div className="space-y-3">
+      {/* Transport narrative */}
       {nearestTransport && (
-        <SectionCard>
+        <SectionCard className="animate-fade-in-up">
           <div className="flex items-center gap-2 mb-2">
             <Tag variant="blue">Mobilite</Tag>
           </div>
@@ -669,62 +735,60 @@ function NearbyTab({ pois, earthquakes, location }: { pois: OverpassPOI[]; earth
       )}
 
       {pois.length > 0 ? (
-        <>
-          {/* Summary */}
-          <SectionCard>
-            <SectionTitle>Services a proximite ({pois.length})</SectionTitle>
-            <div className="text-[10px] text-muted-foreground mb-3">
-              Rayon de 800m autour de la position selectionnee
-            </div>
-            {pois.map((poi) => (
-              <div key={poi.id} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium truncate">{poi.name}</div>
-                  <div className="text-[10px] text-muted-foreground">
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
+          <SectionTitle sub="Rayon de 800m">Services a proximite ({pois.length})</SectionTitle>
+          {pois.map((poi) => (
+            <div key={poi.id} className="flex items-center justify-between py-2.5 border-b border-border last:border-b-0">
+              <div className="min-w-0 flex-1">
+                <div className="text-[11.5px] font-medium truncate">{poi.name}</div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[9px] px-1.5 py-[1px] rounded bg-secondary text-muted-foreground uppercase tracking-wide font-medium">
                     {POI_LABELS[poi.type] || poi.type}
-                    {poi.distance !== undefined && ` · ${poi.distance}m`}
-                  </div>
+                  </span>
+                  {poi.distance !== undefined && (
+                    <span className="text-[10px] text-muted-foreground font-mono">{poi.distance}m</span>
+                  )}
                 </div>
-                <button
-                  onClick={() =>
-                    window.open(
-                      `geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})`,
-                      "_blank"
-                    )
-                  }
-                  className="text-muted-foreground hover:text-foreground transition-colors p-1"
-                >
-                  <HugeiconsIcon icon={Navigation01Icon} size={14} />
-                </button>
               </div>
-            ))}
-          </SectionCard>
-        </>
+              <button
+                onClick={() =>
+                  window.open(
+                    `geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})`,
+                    "_blank"
+                  )
+                }
+                className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 ml-2"
+              >
+                <HugeiconsIcon icon={Navigation01Icon} size={13} />
+              </button>
+            </div>
+          ))}
+        </SectionCard>
       ) : (
         <EmptyState text="Aucun service detecte dans un rayon de 800m." />
       )}
 
       {/* Seismic */}
       {earthquakes.length > 0 && (
-        <SectionCard>
-          <div className="flex items-center gap-2 mb-2">
-            <Tag variant="red">Activite sismique</Tag>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Rayon 300km, recent</span>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Tag variant="red">Sismique</Tag>
+            <span className="text-[10px] text-muted-foreground">Rayon 300km</span>
           </div>
           <NarrativeBlock
-            text={`${earthquakes.length} evenement${earthquakes.length > 1 ? "s" : ""} sismique${earthquakes.length > 1 ? "s" : ""} detecte${earthquakes.length > 1 ? "s" : ""} a proximite. Magnitude maximale : M${Math.max(...earthquakes.map((e) => e.magnitude)).toFixed(1)}.`}
+            text={`${earthquakes.length} evenement${earthquakes.length > 1 ? "s" : ""} sismique${earthquakes.length > 1 ? "s" : ""}. Magnitude max : M${Math.max(...earthquakes.map((e) => e.magnitude)).toFixed(1)}.`}
             icon={Alert01Icon}
           />
           <div className="mt-2">
             {earthquakes.map((eq, i) => (
-              <div key={i} className="flex items-start gap-2 py-2 border-b border-border last:border-b-0">
-                <span className="text-xs font-mono font-medium bg-pastel-red-bg text-pastel-red-text px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">
+              <div key={i} className="flex items-start gap-2.5 py-2.5 border-b border-border last:border-b-0">
+                <span className="text-[10px] font-mono font-semibold bg-pastel-red-bg text-pastel-red-text px-2 py-0.5 rounded-lg mt-0.5 flex-shrink-0">
                   M{eq.magnitude.toFixed(1)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium">{eq.place}</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    Profondeur {eq.depth.toFixed(0)}km · {new Date(eq.time).toLocaleDateString("fr", { day: "numeric", month: "short", year: "numeric" })}
+                  <div className="text-[11px] font-medium leading-tight">{eq.place}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    Prof. {eq.depth.toFixed(0)}km · {new Date(eq.time).toLocaleDateString("fr", { day: "numeric", month: "short", year: "numeric" })}
                   </div>
                 </div>
               </div>
@@ -750,29 +814,37 @@ function NatureTab({ species, location }: { species: GBIFSpecies[]; location: Ge
 
   if (species.length === 0) return <EmptyState text="Aucune observation d'especes recensee dans cette zone." />;
 
-
   return (
-    <div className="space-y-3 animate-fade-in-up">
-      <SectionCard>
-        <div className="flex items-center gap-2 mb-2">
+    <div className="space-y-3">
+      <SectionCard className="animate-fade-in-up">
+        <div className="flex items-center gap-2 mb-3">
           <Tag variant="green">Biodiversite locale</Tag>
-          <span className="text-[10px] text-muted-foreground">Source GBIF</span>
+          <span className="text-[10px] text-muted-foreground">GBIF</span>
         </div>
         <NarrativeBlock
           text={`${species.length} espece${species.length > 1 ? "s" : ""} observee${species.length > 1 ? "s" : ""} dans un rayon de 5km. ${Object.entries(kingdoms).map(([k, v]) => `${v} ${k}`).join(", ")}.`}
           icon={Leaf01Icon}
         />
+
+        {/* Kingdom pills */}
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {Object.entries(kingdoms).map(([k, v]) => (
+            <span key={k} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-pastel-green-bg text-pastel-green-text text-[9px] font-semibold uppercase tracking-wide">
+              {k} <span className="opacity-60">{v}</span>
+            </span>
+          ))}
+        </div>
       </SectionCard>
 
-      <SectionCard>
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
         <SectionTitle>Especes observees</SectionTitle>
         {species.map((sp, i) => (
           <div key={i} className="py-2.5 border-b border-border last:border-b-0">
-            <div className="text-xs font-medium">{sp.name}</div>
-            <div className="text-[10px] text-muted-foreground italic">{sp.scientificName}</div>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="text-[11.5px] font-medium">{sp.name}</div>
+            <div className="text-[10px] text-muted-foreground italic mt-0.5">{sp.scientificName}</div>
+            <div className="flex items-center gap-2 mt-1.5">
               {sp.kingdom && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-pastel-green-bg text-pastel-green-text uppercase tracking-wider font-medium">
+                <span className="text-[8px] px-1.5 py-[2px] rounded bg-pastel-green-bg text-pastel-green-text uppercase tracking-wider font-semibold">
                   {sp.kingdom}
                 </span>
               )}
