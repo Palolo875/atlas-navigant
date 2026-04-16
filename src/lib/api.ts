@@ -632,6 +632,238 @@ export function getPollenLevel(value: number): { label: string; color: "green" |
   return { label: "Élevé", color: "red" };
 }
 
+// ========== ENRICHED NARRATIVE & INSIGHT ENGINES ==========
+
+export interface ComfortScore {
+  score: number; // 0-100
+  label: string;
+  emoji: string;
+  clothing: string[];
+  activities: string[];
+  warnings: string[];
+}
+
+export function computeComfortScore(weather: WeatherData, airQuality: AirQualityData | null): ComfortScore {
+  const { current } = weather;
+  let score = 70;
+
+  // Temperature comfort (ideal 18-24°C)
+  const tempDelta = Math.abs(current.feelsLike - 21);
+  score -= tempDelta * 2;
+
+  // Humidity penalty
+  if (current.humidity > 80) score -= 10;
+  if (current.humidity < 30) score -= 5;
+
+  // Wind penalty
+  if (current.windSpeed > 30) score -= 15;
+  else if (current.windSpeed > 15) score -= 5;
+
+  // Rain penalty
+  if (current.precipitation > 0) score -= 15;
+
+  // UV penalty
+  if (current.uvIndex > 8) score -= 10;
+
+  // Air quality penalty
+  if (airQuality) {
+    if (airQuality.aqi > 80) score -= 15;
+    else if (airQuality.aqi > 50) score -= 5;
+  }
+
+  // Visibility bonus/penalty
+  if (current.visibility > 20000) score += 5;
+  if (current.visibility < 2000) score -= 10;
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  const label = score >= 80 ? "Excellent" : score >= 60 ? "Agreable" : score >= 40 ? "Correct" : score >= 20 ? "Difficile" : "Hostile";
+  const emoji = score >= 80 ? "☀️" : score >= 60 ? "🌤" : score >= 40 ? "🌥" : score >= 20 ? "🌧" : "⛈";
+
+  // Clothing recommendations
+  const clothing: string[] = [];
+  if (current.feelsLike < 5) clothing.push("Manteau chaud, bonnet, gants");
+  else if (current.feelsLike < 12) clothing.push("Veste chaude, couches superposees");
+  else if (current.feelsLike < 18) clothing.push("Veste legere ou pull");
+  else if (current.feelsLike < 25) clothing.push("Vetements legers");
+  else clothing.push("Vetements tres legers, tissu respirant");
+
+  if (current.precipitation > 0 || weather.hourly.slice(0, 6).some(h => h.precipitationProb > 50)) {
+    clothing.push("Parapluie ou impermeable");
+  }
+  if (current.uvIndex > 5) clothing.push("Chapeau, lunettes de soleil, creme SPF50+");
+  if (current.windSpeed > 25) clothing.push("Coupe-vent");
+
+  // Activity recommendations
+  const activities: string[] = [];
+  if (score >= 70 && current.precipitation === 0) {
+    if (current.feelsLike >= 15 && current.feelsLike <= 28) activities.push("Course a pied, velo, randonnee");
+    if (current.feelsLike >= 22 && current.windSpeed < 20) activities.push("Activites nautiques, plage");
+    if (current.visibility > 10000) activities.push("Photographie de paysage");
+    activities.push("Pique-nique, terrasse");
+  }
+  if (score >= 40 && score < 70) {
+    activities.push("Marche courte, visite de musee");
+    if (current.feelsLike > 10) activities.push("Shopping, cafe en terrasse couverte");
+  }
+  if (score < 40) {
+    activities.push("Activites interieures recommandees");
+    if (current.feelsLike < 0) activities.push("Limitez le temps dehors");
+  }
+  if (weather.daily[0] && weather.hourly.some(h => h.cloudCover < 20)) {
+    const sunrise = new Date(weather.daily[0].sunrise);
+    const sunset = new Date(weather.daily[0].sunset);
+    const goldenMorning = new Date(sunrise.getTime() + 30 * 60000);
+    const goldenEvening = new Date(sunset.getTime() - 30 * 60000);
+    activities.push(`Golden hour : ${goldenMorning.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })} et ${goldenEvening.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}`);
+  }
+
+  // Warnings
+  const warnings: string[] = [];
+  if (current.feelsLike > 35) warnings.push("Canicule : hydratation imperative toutes les 20 minutes.");
+  if (current.feelsLike < -10) warnings.push("Grand froid : risque d'hypothermie. Limitez l'exposition.");
+  if (current.windGusts > 80) warnings.push("Rafales dangereuses. Evitez les zones exposees.");
+  if (current.visibility < 500) warnings.push("Visibilite quasi nulle. Ne prenez pas la route.");
+  if (current.uvIndex > 10) warnings.push("UV extreme : brulure en moins de 10 min sans protection.");
+
+  return { score, label, emoji, clothing, activities, warnings };
+}
+
+// Pressure trend analysis from hourly data
+export function analyzePressureTrend(pressure: number): { trend: string; narrative: string } {
+  if (pressure < 990) return { trend: "Tres basse", narrative: "Depression marquee. Systeme orageux probable. Restez informe des previsions." };
+  if (pressure < 1005) return { trend: "Basse", narrative: "Pression en dessous de la normale. Ciel instable, averses possibles dans les heures a venir." };
+  if (pressure < 1015) return { trend: "Normale", narrative: "Pression atmospherique standard. Conditions stables a court terme." };
+  if (pressure < 1025) return { trend: "Haute", narrative: "Anticyclone. Temps sec et ensoleille prevu. Ideal pour les activites exterieures." };
+  return { trend: "Tres haute", narrative: "Anticyclone puissant. Temps durablement stable. En hiver : risque de brouillard matinal persistant." };
+}
+
+// Compute walkability insight from POIs
+export function computeWalkabilityInsight(pois: OverpassPOI[]): { score: string; narrative: string; details: string[] } {
+  const details: string[] = [];
+  const hasTransport = pois.some(p => p.type === "stop_position" || p.type === "station");
+  const hasHealth = pois.some(p => ["hospital", "pharmacy", "doctors"].includes(p.type));
+  const hasFood = pois.some(p => ["restaurant", "cafe", "supermarket", "bakery"].includes(p.type));
+  const hasEmergency = pois.some(p => ["police", "fire_station", "defibrillator"].includes(p.type));
+  const hasCulture = pois.some(p => ["museum", "library", "cinema", "theatre"].includes(p.type));
+  const hasNature = pois.some(p => ["peak", "spring", "cave_entrance", "waterfall", "viewpoint"].includes(p.type));
+
+  let points = 0;
+  if (hasTransport) { points += 2; details.push("Transport public accessible"); }
+  if (hasHealth) { points += 2; details.push("Services de sante a proximite"); }
+  if (hasFood) { points += 1; details.push("Restauration disponible"); }
+  if (hasEmergency) { points += 2; details.push("Services d'urgence proches"); }
+  if (hasCulture) { points += 1; details.push("Offre culturelle"); }
+  if (hasNature) { points += 1; details.push("Sites naturels accessibles"); }
+
+  const nearby100 = pois.filter(p => (p.distance || 999) <= 100).length;
+  if (nearby100 >= 3) { points += 1; details.push(`${nearby100} lieux a moins de 100m`); }
+
+  const score = points >= 7 ? "Excellent" : points >= 5 ? "Bon" : points >= 3 ? "Correct" : "Limite";
+  const narrative = points >= 7
+    ? "Zone tres bien equipee. Tous les services essentiels sont accessibles a pied en quelques minutes."
+    : points >= 5
+    ? "Bonne couverture de services. La plupart des besoins quotidiens sont satisfaits dans un rayon proche."
+    : points >= 3
+    ? "Services de base presents mais incomplets. Certains deplacements necessiteront un vehicule."
+    : "Zone peu equipee. Prevoyez vos provisions et verifiez l'acces aux services de sante.";
+
+  return { score, narrative, details };
+}
+
+// Air quality health recommendations by profile
+export function getAirHealthProfiles(aqi: number, pm25: number): { profile: string; advice: string }[] {
+  const profiles: { profile: string; advice: string }[] = [];
+  if (aqi > 60) {
+    profiles.push({ profile: "Enfants", advice: pm25 > 25 ? "Limitez le temps de jeu en exterieur. Privilegiez les activites interieures." : "Courtes sorties possibles. Evitez les zones a fort trafic." });
+    profiles.push({ profile: "Personnes agees", advice: "Gardez vos medicaments accessibles. Evitez les efforts physiques en exterieur." });
+    profiles.push({ profile: "Asthmatiques", advice: pm25 > 35 ? "Gardez votre inhalateur. Portez un masque FFP2 en exterieur." : "Prenez votre traitement preventif avant toute sortie." });
+  }
+  if (aqi > 80) {
+    profiles.push({ profile: "Sportifs", advice: "Reportez l'entrainement en exterieur ou reduisez l'intensite de 50%." });
+    profiles.push({ profile: "Femmes enceintes", advice: "Restez en interieur autant que possible. Aérez tot le matin." });
+  }
+  if (aqi <= 40) {
+    profiles.push({ profile: "Tous publics", advice: "Conditions ideales pour toutes les activites. Aucune precaution particuliere." });
+  }
+  return profiles;
+}
+
+// Seismic risk narrative
+export function analyzeSeismicRisk(earthquakes: EarthquakeData[]): { level: string; variant: "green" | "yellow" | "red"; narrative: string } {
+  if (earthquakes.length === 0) return { level: "Calme", variant: "green", narrative: "Aucune activite sismique recente dans un rayon de 300km. Zone stable." };
+  const maxMag = Math.max(...earthquakes.map(e => e.magnitude));
+  const recent24h = earthquakes.filter(e => Date.now() - e.time < 24 * 3600000).length;
+  const recent7d = earthquakes.filter(e => Date.now() - e.time < 7 * 24 * 3600000).length;
+  const hasTsunami = earthquakes.some(e => e.tsunami);
+  const shallow = earthquakes.filter(e => e.depth < 20).length;
+
+  if (maxMag >= 6 || hasTsunami) {
+    return {
+      level: "Eleve",
+      variant: "red",
+      narrative: `Seisme majeur M${maxMag.toFixed(1)} detecte. ${hasTsunami ? "Alerte tsunami emise. " : ""}${shallow > 0 ? `${shallow} evenement${shallow > 1 ? "s" : ""} peu profond${shallow > 1 ? "s" : ""} (<20km), ressentis en surface. ` : ""}Verifiez les consignes locales et les voies d'evacuation.`,
+    };
+  }
+  if (maxMag >= 4 || recent24h >= 3) {
+    return {
+      level: "Modere",
+      variant: "yellow",
+      narrative: `${recent7d} seisme${recent7d > 1 ? "s" : ""} cette semaine (max M${maxMag.toFixed(1)}). ${recent24h > 0 ? `${recent24h} dans les dernieres 24h. ` : ""}${shallow > 0 ? "Certains evenements proches de la surface. " : ""}Activite notable mais pas necessairement dangereuse. Restez vigilant.`,
+    };
+  }
+  return {
+    level: "Faible",
+    variant: "green",
+    narrative: `${earthquakes.length} micro-seisme${earthquakes.length > 1 ? "s" : ""} enregistre${earthquakes.length > 1 ? "s" : ""} (max M${maxMag.toFixed(1)}). Activite de fond normale. Aucune precaution specifique requise.`,
+  };
+}
+
+// Biodiversity health index
+export function computeBiodiversityIndex(species: GBIFSpecies[]): { score: string; variant: "green" | "yellow" | "red"; narrative: string } {
+  if (species.length === 0) return { score: "Indetermine", variant: "yellow", narrative: "Pas assez de donnees d'observation dans cette zone pour evaluer la biodiversite." };
+  const kingdoms = new Set(species.map(s => s.kingdom));
+  const families = new Set(species.map(s => s.family));
+  const diversityScore = kingdoms.size * 3 + families.size;
+
+  if (diversityScore >= 20) {
+    return { score: "Riche", variant: "green", narrative: `Ecosysteme diversifie avec ${kingdoms.size} regne${kingdoms.size > 1 ? "s" : ""} et ${families.size} famille${families.size > 1 ? "s" : ""} observee${families.size > 1 ? "s" : ""}. Indicateur d'un milieu en bonne sante ecologique.` };
+  }
+  if (diversityScore >= 10) {
+    return { score: "Modere", variant: "yellow", narrative: `Biodiversite correcte (${families.size} familles). Ecosysteme fonctionnel mais potentiellement sous pression (urbanisation, agriculture intensive).` };
+  }
+  return { score: "Faible", variant: "red", narrative: `Faible diversite observee (${species.length} especes, ${families.size} familles). Zone possiblement degradee ou insuffisamment etudiee.` };
+}
+
+// Day type classification
+export function classifyDayType(weather: WeatherData): { type: string; emoji: string; suggestion: string } {
+  const { current } = weather;
+  const code = current.weatherCode;
+
+  if (code >= 95) return { type: "Orageux", emoji: "⛈", suggestion: "Journee d'interieur. Musees, cinema, spa. Evitez les espaces ouverts." };
+  if (code >= 71 && code <= 86) return { type: "Neigeux", emoji: "❄️", suggestion: "Equipez-vous chaudement. Ski, luge ou chocolat chaud au coin du feu." };
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return { type: "Pluvieux", emoji: "🌧", suggestion: "Parapluie indispensable. Visite de musee, shopping couvert, lecture en cafe." };
+  if (code >= 51 && code <= 57) return { type: "Bruineux", emoji: "🌦", suggestion: "Bruine intermittente. Promenade courte possible avec impermeable." };
+  if (code === 45 || code === 48) return { type: "Brumeux", emoji: "🌫", suggestion: "Atmospherique ! Photos mystiques en foret. Prudence en voiture." };
+  if (code === 3) return { type: "Couvert", emoji: "☁️", suggestion: "Lumiere douce. Ideal pour la randonnee sans coup de soleil." };
+  if (code === 2) return { type: "Variable", emoji: "⛅", suggestion: "Eclairces et passages nuageux. Adaptez votre programme au fil des heures." };
+  if (current.feelsLike > 30 && current.uvIndex > 7) return { type: "Caniculaire", emoji: "🔥", suggestion: "Forte chaleur. Eau, ombre, et activites aquatiques. Evitez 12h-16h." };
+  if (current.feelsLike < 0 && current.windSpeed > 20) return { type: "Glacial", emoji: "🥶", suggestion: "Froid intense. Sortie minimale, plusieurs couches, boissons chaudes." };
+  return { type: "Radieux", emoji: "☀️", suggestion: "Journee ideale ! Profitez de chaque instant en exterieur. Randonnee, terrasse, velo." };
+}
+
+// Time-aware greeting / context
+export function getTimeContext(): { greeting: string; advice: string } {
+  const h = new Date().getHours();
+  if (h < 6) return { greeting: "Nuit", advice: "Verifiez les conditions pour demain matin. Bon repos." };
+  if (h < 9) return { greeting: "Bonjour", advice: "Consultez les previsions avant de sortir." };
+  if (h < 12) return { greeting: "Bonne matinee", advice: "Fenetre ideale pour les activites en exterieur." };
+  if (h < 14) return { greeting: "Bon appetit", advice: "Pause meridienne. Le soleil est au zenith." };
+  if (h < 17) return { greeting: "Bon apres-midi", advice: "Attention a l'UV si vous etes dehors." };
+  if (h < 20) return { greeting: "Bonne soiree", advice: "Ideal pour une balade au coucher du soleil." };
+  return { greeting: "Bonne nuit", advice: "Verifiez la meteo de demain avant de dormir." };
+}
+
 export function generateNarrative(
   weather: WeatherData,
   airQuality: AirQualityData | null,
@@ -640,57 +872,68 @@ export function generateNarrative(
   const narratives: string[] = [];
   const { current } = weather;
 
+  // Day type — main contextual narrative
+  const dayType = classifyDayType(weather);
+  narratives.push(`${dayType.emoji} ${dayType.type}. ${dayType.suggestion}`);
+
   // Altitude warning
   if (elevation > 2500) {
+    const o2Loss = Math.round((1 - Math.exp(-elevation / 7400)) * 100);
     narratives.push(
-      `Altitude ${Math.round(elevation)}m. L'oxygénation est réduite de ~${Math.round((1 - Math.exp(-elevation / 7400)) * 100)}%. Hydratez-vous fréquemment et montez progressivement.`
+      `Altitude ${Math.round(elevation)}m. Oxygenation reduite de ~${o2Loss}%. Hydratez-vous frequemment et montez progressivement.`
     );
+  } else if (elevation > 1500) {
+    narratives.push(`Altitude ${Math.round(elevation)}m. Effort physique legerement plus difficile. Prenez votre temps.`);
   }
 
   // UV narrative
   const uvInfo = getUVLabel(current.uvIndex);
-  narratives.push(`UV ${uvInfo.label} (${current.uvIndex}). ${uvInfo.signal}`);
+  if (current.uvIndex > 2) {
+    narratives.push(`UV ${uvInfo.label} (${current.uvIndex}). ${uvInfo.signal}`);
+  }
 
   // Dew point comfort
   const dpInfo = getDewPointComfort(current.dewPoint);
   if (current.dewPoint >= 18) {
-    narratives.push(`Point de rosée ${current.dewPoint.toFixed(0)}°C. ${dpInfo.signal}`);
+    narratives.push(`Point de rosee ${current.dewPoint.toFixed(0)}°C. ${dpInfo.signal}`);
   }
 
   // Air quality narrative
-  if (airQuality) {
+  if (airQuality && airQuality.aqi > 40) {
     const aqInfo = getAQILabel(airQuality.aqi);
     narratives.push(`${aqInfo.signal} AQI ${airQuality.aqi}.`);
   }
 
   // Wind gusts
   if (current.windGusts > 60) {
-    narratives.push(`Rafales à ${current.windGusts} km/h. Danger pour les activités en extérieur. Abritez-vous.`);
+    narratives.push(`Rafales a ${current.windGusts} km/h. Danger pour les activites en exterieur. Abritez-vous.`);
   } else if (current.windSpeed > 40) {
-    narratives.push(`Vent fort à ${current.windSpeed} km/h (rafales ${current.windGusts} km/h). Sécurisez vos affaires.`);
-  } else if (current.windSpeed > 20) {
-    narratives.push(`Vent modéré de ${current.windSpeed} km/h direction ${windDirectionToLabel(current.windDirection)}.`);
+    narratives.push(`Vent fort a ${current.windSpeed} km/h (rafales ${current.windGusts} km/h). Securisez vos affaires.`);
   }
 
   // Visibility
   if (current.visibility < 1000) {
-    narratives.push(`Visibilité très réduite (${current.visibility}m). Prudence sur la route.`);
+    narratives.push(`Visibilite tres reduite (${current.visibility}m). Prudence sur la route.`);
   } else if (current.visibility < 5000) {
-    narratives.push(`Visibilité réduite (${(current.visibility / 1000).toFixed(1)}km). Activez vos feux de croisement.`);
+    narratives.push(`Visibilite reduite (${(current.visibility / 1000).toFixed(1)}km). Activez vos feux de croisement.`);
   }
 
   // Pressure trend
-  if (current.pressure < 1000) {
-    narratives.push(`Pression basse (${Math.round(current.pressure)} hPa). Dégradation météo probable.`);
-  } else if (current.pressure > 1025) {
-    narratives.push(`Haute pression (${Math.round(current.pressure)} hPa). Stabilité météo attendue.`);
-  }
+  const pressureInfo = analyzePressureTrend(current.pressure);
+  narratives.push(`Pression ${pressureInfo.trend} (${Math.round(current.pressure)} hPa). ${pressureInfo.narrative}`);
 
   // Precipitation forecast
   const rainDays = weather.daily.filter(d => d.precipitationSum > 1);
   if (rainDays.length > 0) {
     const totalRain = rainDays.reduce((s, d) => s + d.precipitationSum, 0);
-    narratives.push(`${rainDays.length} jour${rainDays.length > 1 ? "s" : ""} de pluie (${totalRain.toFixed(0)}mm cumul). Prévoyez un imperméable.`);
+    narratives.push(`${rainDays.length} jour${rainDays.length > 1 ? "s" : ""} de pluie cette semaine (${totalRain.toFixed(0)}mm cumul). Prevoyez un impermeable.`);
+  }
+
+  // Temperature trend analysis
+  if (weather.daily.length >= 3) {
+    const trend = weather.daily[weather.daily.length - 1].tempMax - weather.daily[0].tempMax;
+    if (trend > 5) narratives.push(`Tendance au rechauffement : +${trend.toFixed(0)}°C d'ici la fin de semaine.`);
+    else if (trend < -5) narratives.push(`Rafraichissement en vue : ${trend.toFixed(0)}°C d'ici la fin de semaine. Prevoyez des couches supplementaires.`);
   }
 
   return narratives;
