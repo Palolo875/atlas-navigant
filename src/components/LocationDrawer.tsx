@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Drawer } from "vaul";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -44,6 +44,14 @@ import {
   windDirectionToLabel,
   generateNarrative,
   getEONETCategoryInfo,
+  computeComfortScore,
+  analyzePressureTrend,
+  computeWalkabilityInsight,
+  getAirHealthProfiles,
+  analyzeSeismicRisk,
+  computeBiodiversityIndex,
+  classifyDayType,
+  getTimeContext,
 } from "@/lib/api";
 
 interface LocationDrawerProps {
@@ -78,7 +86,6 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
   const [species, setSpecies] = useState<GBIFSpecies[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Alert count for badge
   const alertCount = useMemo(() => earthquakes.length + eonetEvents.length + reliefAlerts.length, [earthquakes, eonetEvents, reliefAlerts]);
 
   useEffect(() => {
@@ -116,6 +123,9 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
 
   const narratives = weather ? generateNarrative(weather, airQuality, weather.elevation) : [];
   const wInfo = weather ? weatherCodeToLabel(weather.current.weatherCode) : null;
+  const comfort = weather ? computeComfortScore(weather, airQuality) : null;
+  const dayType = weather ? classifyDayType(weather) : null;
+  const timeCtx = getTimeContext();
 
   const handleNavigate = () => {
     window.open(
@@ -138,6 +148,7 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
           <div className="px-5 pb-4">
             <div className="flex items-start justify-between gap-3 mb-1">
               <div className="min-w-0 flex-1">
+                <div className="text-[10px] text-muted-foreground mb-0.5">{timeCtx.greeting}</div>
                 <h2 className="font-serif text-xl font-semibold text-foreground leading-[1.1] tracking-tight">
                   {location.name}
                 </h2>
@@ -172,13 +183,18 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
                   <span className="text-lg text-muted-foreground font-light">&deg;C</span>
                 </div>
                 <div className="flex flex-col gap-0.5 pb-1 flex-1 min-w-0">
-                  <span className="text-sm font-medium text-foreground leading-tight">{wInfo.label}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-foreground leading-tight">{wInfo.label}</span>
+                    {dayType && <span className="text-sm">{dayType.emoji}</span>}
+                  </div>
                   <span className="text-[11px] text-muted-foreground leading-tight">
                     Ressenti {Math.round(weather.current.feelsLike)}&deg; · {weather.current.windSpeed} km/h {windDirectionToLabel(weather.current.windDirection)}
                   </span>
-                  <span className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                    {location.lat.toFixed(4)}, {location.lon.toFixed(4)} · {Math.round(weather.elevation)}m
-                  </span>
+                  {comfort && (
+                    <span className="text-[10px] font-medium text-muted-foreground mt-0.5">
+                      Confort {comfort.emoji} {comfort.score}/100
+                    </span>
+                  )}
                 </div>
                 {airQuality && (
                   <div className="flex-shrink-0 pb-1">
@@ -205,7 +221,7 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
                   <HugeiconsIcon icon={tab.icon} size={13} />
                   {tab.label}
                   {tab.id === "alerts" && alertCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-pastel-red-text text-primary-foreground text-[8px] font-bold flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center">
                       {alertCount > 9 ? "9+" : alertCount}
                     </span>
                   )}
@@ -223,7 +239,7 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
             ) : (
               <>
                 {activeTab === "weather" && weather && (
-                  <WeatherTab weather={weather} narratives={narratives} />
+                  <WeatherTab weather={weather} narratives={narratives} airQuality={airQuality} />
                 )}
                 {activeTab === "air" && <AirTab airQuality={airQuality} />}
                 {activeTab === "alerts" && (
@@ -344,52 +360,154 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color:
   );
 }
 
-// ====== WEATHER TAB (enriched) ======
+// Progressive disclosure toggle
+function Expandable({ label, defaultOpen = false, children }: { label: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span className={`transition-transform duration-200 ${open ? "rotate-90" : ""}`}>›</span>
+        {label}
+      </button>
+      {open && <div className="mt-2 animate-fade-in-up">{children}</div>}
+    </div>
+  );
+}
 
-function WeatherTab({ weather, narratives }: { weather: WeatherData; narratives: string[] }) {
+function MiniStat({ label, value, sub, accent = false }: { label: string; value: string; sub?: string; accent?: boolean }) {
+  return (
+    <div className={`rounded-xl p-3 ${accent ? "bg-pastel-yellow-bg/50" : "bg-secondary/40"}`}>
+      <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">{label}</div>
+      <div className="text-[13px] font-semibold mt-1 font-mono leading-tight">{value}</div>
+      {sub && <div className="text-[9px] text-muted-foreground mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+function getWeatherSymbol(code: number): string {
+  if (code === 0 || code === 1) return "\u2600";
+  if (code === 2) return "\u26C5";
+  if (code === 3) return "\u2601";
+  if (code === 45 || code === 48) return "\u2588";
+  if (code >= 51 && code <= 57) return "\u2022";
+  if (code >= 61 && code <= 67) return "\u2602";
+  if (code >= 71 && code <= 77) return "\u2744";
+  if (code >= 80 && code <= 82) return "\u2602";
+  if (code >= 85 && code <= 86) return "\u2744";
+  if (code >= 95) return "\u26A1";
+  return "\u2601";
+}
+
+// ====== WEATHER TAB ======
+
+function WeatherTab({ weather, narratives, airQuality }: { weather: WeatherData; narratives: string[]; airQuality: AirQualityData | null }) {
   const todaySunrise = weather.daily[0]?.sunrise;
   const todaySunset = weather.daily[0]?.sunset;
   const uvInfo = getUVLabel(weather.current.uvIndex);
   const dpInfo = getDewPointComfort(weather.current.dewPoint);
+  const comfort = computeComfortScore(weather, airQuality);
+  const pressureInfo = analyzePressureTrend(weather.current.pressure);
 
   return (
     <div className="space-y-3">
-      {/* Narratives */}
-      {narratives.length > 0 && (
-        <SectionCard className="animate-fade-in-up">
-          <div className="flex items-center gap-2 mb-3">
-            <Tag variant="blue">Signal</Tag>
-            <span className="text-[10px] text-muted-foreground tracking-wide">Analyse contextuelle</span>
+      {/* Comfort Score Hero */}
+      <SectionCard className="animate-fade-in-up">
+        <div className="flex items-center gap-2 mb-2">
+          <Tag variant={comfort.score >= 60 ? "green" : comfort.score >= 40 ? "yellow" : "red"}>Confort exterieur</Tag>
+          <span className="text-[10px] text-muted-foreground">{comfort.score}/100</span>
+        </div>
+        <div className="flex items-center gap-4 mb-3">
+          <div className="text-4xl">{comfort.emoji}</div>
+          <div className="flex-1">
+            <div className="font-serif text-lg font-semibold">{comfort.label}</div>
+            <ProgressBar value={comfort.score} max={100} color={comfort.score >= 60 ? "hsl(var(--pastel-green-text))" : comfort.score >= 40 ? "hsl(var(--pastel-yellow-text))" : "hsl(var(--pastel-red-text))"} />
           </div>
-          {narratives.map((n, i) => (
+        </div>
+
+        {/* Clothing reco */}
+        {comfort.clothing.length > 0 && (
+          <div className="mt-2 px-3 py-2.5 rounded-lg bg-secondary/50">
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium mb-1">Tenue recommandee</div>
+            {comfort.clothing.map((c, i) => (
+              <div key={i} className="text-[11px] leading-[1.6] text-foreground">· {c}</div>
+            ))}
+          </div>
+        )}
+
+        {/* Activities */}
+        {comfort.activities.length > 0 && (
+          <Expandable label={`${comfort.activities.length} activites suggerees`}>
+            <div className="space-y-1 px-3 py-2 rounded-lg bg-pastel-green-bg/30">
+              {comfort.activities.map((a, i) => (
+                <div key={i} className="text-[11px] leading-[1.5] text-foreground">· {a}</div>
+              ))}
+            </div>
+          </Expandable>
+        )}
+
+        {/* Warnings */}
+        {comfort.warnings.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {comfort.warnings.map((w, i) => (
+              <div key={i} className="px-3 py-2 rounded-lg bg-pastel-red-bg/50 text-[10px] text-pastel-red-text font-medium">⚠ {w}</div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Narratives — progressive: show first 3, expand rest */}
+      {narratives.length > 0 && (
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "40ms" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Tag variant="blue">Analyse</Tag>
+            <span className="text-[10px] text-muted-foreground">{narratives.length} signaux</span>
+          </div>
+          {narratives.slice(0, 3).map((n, i) => (
             <NarrativeBlock key={i} text={n} icon={Alert01Icon} />
           ))}
+          {narratives.length > 3 && (
+            <Expandable label={`${narratives.length - 3} signaux supplementaires`}>
+              {narratives.slice(3).map((n, i) => (
+                <NarrativeBlock key={i} text={n} icon={InformationCircleIcon} />
+              ))}
+            </Expandable>
+          )}
         </SectionCard>
       )}
 
       {/* Conditions bento grid */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
         <SectionTitle>Conditions actuelles</SectionTitle>
         <div className="grid grid-cols-3 gap-2">
           <MiniStat label="Humidite" value={`${weather.current.humidity}%`} accent={weather.current.humidity > 80} />
-          <MiniStat label="Pression" value={`${Math.round(weather.current.pressure)} hPa`} accent={weather.current.pressure < 1000} />
-          <MiniStat label="Nuages" value={`${weather.current.cloudCover}%`} />
+          <MiniStat label="Pression" value={`${Math.round(weather.current.pressure)} hPa`} sub={pressureInfo.trend} accent={weather.current.pressure < 1000} />
+          <MiniStat label="Nuages" value={`${weather.current.cloudCover}%`} sub={weather.current.cloudCover > 80 ? "Couvert" : weather.current.cloudCover > 40 ? "Partiel" : "Degage"} />
           <MiniStat label="Vent" value={`${weather.current.windSpeed} km/h`} sub={windDirectionToLabel(weather.current.windDirection)} accent={weather.current.windSpeed > 30} />
           <MiniStat label="Rafales" value={`${weather.current.windGusts} km/h`} accent={weather.current.windGusts > 50} />
           <MiniStat label="Precipitations" value={`${weather.current.precipitation} mm`} accent={weather.current.precipitation > 0} />
-          <MiniStat
-            label="Visibilite"
-            value={weather.current.visibility >= 1000
-              ? `${(weather.current.visibility / 1000).toFixed(1)} km`
-              : `${weather.current.visibility} m`}
-            accent={weather.current.visibility < 2000}
-          />
-          <MiniStat label="Point de rosee" value={`${weather.current.dewPoint.toFixed(0)}°C`} sub={dpInfo.label} accent={weather.current.dewPoint >= 18} />
-          <MiniStat label="Altitude" value={`${Math.round(weather.elevation)}m`} sub={weather.elevation > 2500 ? "Haute alt." : weather.elevation > 1000 ? "Montagne" : "Plaine"} />
         </div>
+        <Expandable label="Details avances">
+          <div className="grid grid-cols-3 gap-2">
+            <MiniStat
+              label="Visibilite"
+              value={weather.current.visibility >= 1000
+                ? `${(weather.current.visibility / 1000).toFixed(1)} km`
+                : `${weather.current.visibility} m`}
+              accent={weather.current.visibility < 2000}
+            />
+            <MiniStat label="Point de rosee" value={`${weather.current.dewPoint.toFixed(0)}°C`} sub={dpInfo.label} accent={weather.current.dewPoint >= 18} />
+            <MiniStat label="Altitude" value={`${Math.round(weather.elevation)}m`} sub={weather.elevation > 2500 ? "Haute alt." : weather.elevation > 1000 ? "Montagne" : "Plaine"} />
+          </div>
+          <div className="mt-2 px-3 py-2 rounded-lg bg-secondary/50">
+            <div className="text-[10px] text-muted-foreground leading-relaxed">{pressureInfo.narrative}</div>
+          </div>
+        </Expandable>
       </SectionCard>
 
-      {/* UV + Altitude — horizontal duo */}
+      {/* UV + Comfort duo */}
       <div className="grid grid-cols-2 gap-2 animate-fade-in-up" style={{ animationDelay: "120ms" }}>
         <SectionCard className="!mb-0">
           <div className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] font-medium mb-1">Indice UV</div>
@@ -411,7 +529,7 @@ function WeatherTab({ weather, narratives }: { weather: WeatherData; narratives:
 
       {/* Ephemerides */}
       {todaySunrise && (
-        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "160ms" }}>
           <SectionTitle>Ephemerides</SectionTitle>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -451,11 +569,36 @@ function WeatherTab({ weather, narratives }: { weather: WeatherData; narratives:
               </div>
             </div>
           </div>
+          {/* Golden hour info */}
+          <Expandable label="Golden hour & crepuscule">
+            {(() => {
+              const rise = new Date(todaySunrise);
+              const set = new Date(todaySunset);
+              const goldenAM = new Date(rise.getTime() + 40 * 60000);
+              const goldenPM = new Date(set.getTime() - 40 * 60000);
+              return (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl p-2.5 bg-pastel-yellow-bg/40">
+                    <div className="text-[9px] text-muted-foreground uppercase">Golden hour matin</div>
+                    <div className="text-xs font-mono font-semibold mt-1">
+                      {rise.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })} - {goldenAM.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  </div>
+                  <div className="rounded-xl p-2.5 bg-pastel-red-bg/30">
+                    <div className="text-[9px] text-muted-foreground uppercase">Golden hour soir</div>
+                    <div className="text-xs font-mono font-semibold mt-1">
+                      {goldenPM.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })} - {set.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </Expandable>
         </SectionCard>
       )}
 
-      {/* Hourly scroll (enriched) */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>
+      {/* Hourly scroll */}
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
         <SectionTitle>Prochaines heures</SectionTitle>
         <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-1 -mx-1">
           {weather.hourly.slice(0, 12).map((h, i) => (
@@ -476,10 +619,26 @@ function WeatherTab({ weather, narratives }: { weather: WeatherData; narratives:
             </div>
           ))}
         </div>
+        {/* Rain window insight */}
+        {(() => {
+          const nextRain = weather.hourly.slice(0, 12).find(h => h.precipitationProb > 50);
+          const dryWindow = weather.hourly.slice(0, 12).filter(h => h.precipitationProb < 20).length;
+          if (nextRain) {
+            return (
+              <div className="mt-2 px-3 py-2 rounded-lg bg-pastel-blue-bg/40">
+                <div className="text-[10px] text-pastel-blue-text font-medium">
+                  🌧 Pluie probable vers {new Date(nextRain.time).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })} ({nextRain.precipitationProb}%).
+                  {dryWindow > 0 && ` ${dryWindow}h de fenetre seche disponible.`}
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
       </SectionCard>
 
-      {/* 7-day (enriched) */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "300ms" }}>
+      {/* 7-day */}
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>
         <SectionTitle>Previsions 7 jours</SectionTitle>
         {weather.daily.map((d, i) => {
           const allMin = Math.min(...weather.daily.map((x) => x.tempMin));
@@ -515,64 +674,51 @@ function WeatherTab({ weather, narratives }: { weather: WeatherData; narratives:
             </div>
           );
         })}
-      </SectionCard>
-
-      {/* Weekly summary */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "360ms" }}>
-        <SectionTitle>Resume de la semaine</SectionTitle>
-        {(() => {
-          const totalPrecip = weather.daily.reduce((s, d) => s + d.precipitationSum, 0);
-          const totalPrecipHours = weather.daily.reduce((s, d) => s + d.precipitationHours, 0);
-          const maxGust = Math.max(...weather.daily.map(d => d.windGustsMax));
-          const maxUV = Math.max(...weather.daily.map(d => d.uvIndexMax));
-          const avgMax = weather.daily.reduce((s, d) => s + d.tempMax, 0) / weather.daily.length;
-          const avgMin = weather.daily.reduce((s, d) => s + d.tempMin, 0) / weather.daily.length;
-          return (
-            <div className="grid grid-cols-2 gap-2">
-              <MiniStat label="Temp. moy. max" value={`${avgMax.toFixed(1)}°C`} />
-              <MiniStat label="Temp. moy. min" value={`${avgMin.toFixed(1)}°C`} />
-              <MiniStat label="Cumul pluie" value={`${totalPrecip.toFixed(1)} mm`} sub={`${totalPrecipHours.toFixed(0)}h de pluie`} accent={totalPrecip > 20} />
-              <MiniStat label="Rafales max" value={`${maxGust.toFixed(0)} km/h`} accent={maxGust > 60} />
-              <MiniStat label="UV max semaine" value={maxUV.toString()} accent={maxUV > 6} />
-              <MiniStat label="Amplitude" value={`${(Math.max(...weather.daily.map(d=>d.tempMax)) - Math.min(...weather.daily.map(d=>d.tempMin))).toFixed(1)}°C`} />
-            </div>
-          );
-        })()}
+        {/* Weekly summary — progressive */}
+        <Expandable label="Resume de la semaine">
+          {(() => {
+            const totalPrecip = weather.daily.reduce((s, d) => s + d.precipitationSum, 0);
+            const totalPrecipHours = weather.daily.reduce((s, d) => s + d.precipitationHours, 0);
+            const maxGust = Math.max(...weather.daily.map(d => d.windGustsMax));
+            const maxUV = Math.max(...weather.daily.map(d => d.uvIndexMax));
+            const avgMax = weather.daily.reduce((s, d) => s + d.tempMax, 0) / weather.daily.length;
+            const avgMin = weather.daily.reduce((s, d) => s + d.tempMin, 0) / weather.daily.length;
+            const bestDay = weather.daily.reduce((best, d) => {
+              const score = d.tempMax - d.precipitationSum * 2 - d.windSpeedMax * 0.3;
+              const bestScore = best.tempMax - best.precipitationSum * 2 - best.windSpeedMax * 0.3;
+              return score > bestScore ? d : best;
+            });
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <MiniStat label="Temp. moy. max" value={`${avgMax.toFixed(1)}°C`} />
+                  <MiniStat label="Temp. moy. min" value={`${avgMin.toFixed(1)}°C`} />
+                  <MiniStat label="Cumul pluie" value={`${totalPrecip.toFixed(1)} mm`} sub={`${totalPrecipHours.toFixed(0)}h de pluie`} accent={totalPrecip > 20} />
+                  <MiniStat label="Rafales max" value={`${maxGust.toFixed(0)} km/h`} accent={maxGust > 60} />
+                  <MiniStat label="UV max semaine" value={maxUV.toString()} accent={maxUV > 6} />
+                  <MiniStat label="Amplitude" value={`${(Math.max(...weather.daily.map(d => d.tempMax)) - Math.min(...weather.daily.map(d => d.tempMin))).toFixed(1)}°C`} />
+                </div>
+                <div className="mt-2 px-3 py-2 rounded-lg bg-pastel-green-bg/30">
+                  <div className="text-[10px] text-pastel-green-text font-medium">
+                    ✨ Meilleur jour : {new Date(bestDay.date).toLocaleDateString("fr", { weekday: "long", day: "numeric" })} — {Math.round(bestDay.tempMax)}°C, {weatherCodeToLabel(bestDay.weatherCode).label}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </Expandable>
       </SectionCard>
     </div>
   );
 }
 
-function MiniStat({ label, value, sub, accent = false }: { label: string; value: string; sub?: string; accent?: boolean }) {
-  return (
-    <div className={`rounded-xl p-3 ${accent ? "bg-pastel-yellow-bg/50" : "bg-secondary/40"}`}>
-      <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">{label}</div>
-      <div className="text-[13px] font-semibold mt-1 font-mono leading-tight">{value}</div>
-      {sub && <div className="text-[9px] text-muted-foreground mt-0.5">{sub}</div>}
-    </div>
-  );
-}
-
-function getWeatherSymbol(code: number): string {
-  if (code === 0 || code === 1) return "\u2600";
-  if (code === 2) return "\u26C5";
-  if (code === 3) return "\u2601";
-  if (code === 45 || code === 48) return "\u2588";
-  if (code >= 51 && code <= 57) return "\u2022";
-  if (code >= 61 && code <= 67) return "\u2602";
-  if (code >= 71 && code <= 77) return "\u2744";
-  if (code >= 80 && code <= 82) return "\u2602";
-  if (code >= 85 && code <= 86) return "\u2744";
-  if (code >= 95) return "\u26A1";
-  return "\u2601";
-}
-
-// ====== AIR TAB (enriched with pollen + dust) ======
+// ====== AIR TAB ======
 
 function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
   if (!airQuality) return <EmptyState text="Chargement des donnees de qualite de l'air..." />;
 
   const aqInfo = getAQILabel(airQuality.aqi);
+  const healthProfiles = getAirHealthProfiles(airQuality.aqi, airQuality.pm25);
 
   const pollutants = [
     { key: "PM2.5", value: airQuality.pm25, unit: "\u00B5g/m\u00B3", desc: "Particules fines respirables", threshold: 25 },
@@ -581,7 +727,7 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
     { key: "O\u2083", value: airQuality.ozone, unit: "\u00B5g/m\u00B3", desc: "Ozone tropospherique", threshold: 180 },
     { key: "SO\u2082", value: airQuality.so2, unit: "\u00B5g/m\u00B3", desc: "Dioxyde de soufre, industrie", threshold: 350 },
     { key: "CO", value: airQuality.co, unit: "\u00B5g/m\u00B3", desc: "Monoxyde de carbone", threshold: 10000 },
-    { key: "Poussieres", value: airQuality.dust, unit: "\u00B5g/m\u00B3", desc: "Particules de sable et poussiere", threshold: 100 },
+    { key: "Poussieres", value: airQuality.dust, unit: "\u00B5g/m\u00B3", desc: "Sable et poussiere", threshold: 100 },
   ];
 
   const pollenData = [
@@ -609,7 +755,8 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
             <p className="text-[11px] leading-[1.6] text-muted-foreground mt-2">{aqInfo.signal}</p>
           </div>
         </div>
-        {/* Narrative insights */}
+
+        {/* Contextual insights */}
         {airQuality.pm25 > 15 && (
           <NarrativeBlock text={`PM2.5 a ${airQuality.pm25.toFixed(1)} \u00B5g/m\u00B3. Ces particules fines penetrent profondement dans les poumons. Portez un masque FFP2 si exposition prolongee.`} icon={Alert01Icon} />
         )}
@@ -617,14 +764,39 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
           <NarrativeBlock text={`Ozone eleve (${airQuality.ozone.toFixed(0)} \u00B5g/m\u00B3). Evitez les activites physiques intenses en exterieur entre 12h et 18h.`} icon={Alert01Icon} />
         )}
         {airQuality.dust > 50 && (
-          <NarrativeBlock text={`Concentration de poussieres importante (${airQuality.dust.toFixed(0)} \u00B5g/m\u00B3). Episode saharien probable. Protegez vos voies respiratoires.`} icon={Alert01Icon} />
+          <NarrativeBlock text={`Concentration de poussieres importante (${airQuality.dust.toFixed(0)} \u00B5g/m\u00B3). Episode saharien probable.`} icon={Alert01Icon} />
         )}
       </SectionCard>
 
-      {/* Pollutants */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
+      {/* Health profiles — progressive */}
+      {healthProfiles.length > 0 && (
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "40ms" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Tag variant="purple">Recommandations sante</Tag>
+          </div>
+          {healthProfiles.slice(0, 2).map((hp, i) => (
+            <div key={i} className="py-2 border-b border-border last:border-b-0">
+              <div className="text-[10px] font-semibold text-foreground">{hp.profile}</div>
+              <div className="text-[11px] text-muted-foreground leading-[1.5] mt-0.5">{hp.advice}</div>
+            </div>
+          ))}
+          {healthProfiles.length > 2 && (
+            <Expandable label={`${healthProfiles.length - 2} autres profils`}>
+              {healthProfiles.slice(2).map((hp, i) => (
+                <div key={i} className="py-2 border-b border-border last:border-b-0">
+                  <div className="text-[10px] font-semibold text-foreground">{hp.profile}</div>
+                  <div className="text-[11px] text-muted-foreground leading-[1.5] mt-0.5">{hp.advice}</div>
+                </div>
+              ))}
+            </Expandable>
+          )}
+        </SectionCard>
+      )}
+
+      {/* Pollutants — show top 3, expand rest */}
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
         <SectionTitle>Polluants</SectionTitle>
-        {pollutants.map((p) => {
+        {pollutants.slice(0, 3).map((p) => {
           const ratio = p.value / p.threshold;
           const color = ratio > 0.7 ? "hsl(var(--pastel-red-text))" : ratio > 0.4 ? "hsl(var(--pastel-yellow-text))" : "hsl(var(--pastel-green-text))";
           return (
@@ -640,6 +812,24 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
             </div>
           );
         })}
+        <Expandable label={`${pollutants.length - 3} autres polluants`}>
+          {pollutants.slice(3).map((p) => {
+            const ratio = p.value / p.threshold;
+            const color = ratio > 0.7 ? "hsl(var(--pastel-red-text))" : ratio > 0.4 ? "hsl(var(--pastel-yellow-text))" : "hsl(var(--pastel-green-text))";
+            return (
+              <div key={p.key} className="py-2.5 border-b border-border last:border-b-0">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold">{p.key}</span>
+                    <span className="text-[9px] text-muted-foreground">{p.desc}</span>
+                  </div>
+                  <span className="text-[11px] font-mono font-medium">{p.value.toFixed(1)}</span>
+                </div>
+                <ProgressBar value={p.value} max={p.threshold} color={color} />
+              </div>
+            );
+          })}
+        </Expandable>
       </SectionCard>
 
       {/* Pollen */}
@@ -649,22 +839,18 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
             <Tag variant="yellow">Pollens</Tag>
             <span className="text-[10px] text-muted-foreground">Allergenes aeriens</span>
           </div>
-          {pollenData.filter(p => p.value > 0).length === 0 ? (
-            <p className="text-[11px] text-muted-foreground">Aucun pollen detecte actuellement.</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-2">
-              {pollenData.map((p) => {
-                const info = getPollenLevel(p.value);
-                return (
-                  <div key={p.key} className={`rounded-xl p-2.5 ${p.value > 0 ? "bg-pastel-yellow-bg/40" : "bg-secondary/30"}`}>
-                    <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium">{p.key}</div>
-                    <div className="text-[13px] font-mono font-semibold mt-1">{p.value}</div>
-                    <Tag variant={info.color}>{info.label}</Tag>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div className="grid grid-cols-3 gap-2">
+            {pollenData.map((p) => {
+              const info = getPollenLevel(p.value);
+              return (
+                <div key={p.key} className={`rounded-xl p-2.5 ${p.value > 0 ? "bg-pastel-yellow-bg/40" : "bg-secondary/30"}`}>
+                  <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium">{p.key}</div>
+                  <div className="text-[13px] font-mono font-semibold mt-1">{p.value}</div>
+                  <Tag variant={info.color}>{info.label}</Tag>
+                </div>
+              );
+            })}
+          </div>
           {pollenData.some(p => p.value >= 50) && (
             <NarrativeBlock text="Concentration de pollens elevee. Allergiques : limitez le temps en exterieur, gardez les fenetres fermees, douchez-vous en rentrant." icon={Alert01Icon} />
           )}
@@ -674,7 +860,7 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
   );
 }
 
-// ====== ALERTS TAB (NEW — EONET + ReliefWeb + Earthquakes) ======
+// ====== ALERTS TAB ======
 
 function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
   earthquakes: EarthquakeData[];
@@ -683,23 +869,58 @@ function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
   location: GeoResult;
 }) {
   const totalAlerts = earthquakes.length + eonetEvents.length + reliefAlerts.length;
+  const seismicRisk = analyzeSeismicRisk(earthquakes);
 
   if (totalAlerts === 0) {
-    return <EmptyState text="Aucune alerte environnementale ou sismique detectee dans cette zone. Conditions calmes." />;
+    return (
+      <div className="space-y-3">
+        <SectionCard className="animate-fade-in-up">
+          <div className="flex items-center gap-2 mb-3">
+            <Tag variant="green">Zone calme</Tag>
+          </div>
+          <NarrativeBlock text="Aucune alerte environnementale, sismique ou humanitaire detectee dans cette zone. Les conditions sont stables et securisees." icon={InformationCircleIcon} />
+          <div className="mt-2 px-3 py-2 rounded-lg bg-pastel-green-bg/30">
+            <div className="text-[10px] text-pastel-green-text leading-relaxed">
+              Sources surveillees : NASA EONET (evenements naturels), USGS (seismes, rayon 300km), ReliefWeb (alertes humanitaires). Donnees actualisees en temps reel.
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-3">
-      {/* Summary */}
+      {/* Risk synthesis */}
       <SectionCard className="animate-fade-in-up">
         <div className="flex items-center gap-2 mb-3">
-          <Tag variant="red">Alertes</Tag>
-          <span className="text-[10px] text-muted-foreground">{totalAlerts} evenement{totalAlerts > 1 ? "s" : ""} detecte{totalAlerts > 1 ? "s" : ""}</span>
+          <Tag variant="red">Synthese des risques</Tag>
+          <span className="text-[10px] text-muted-foreground">{totalAlerts} evenement{totalAlerts > 1 ? "s" : ""}</span>
         </div>
-        <NarrativeBlock
-          text={`${earthquakes.length > 0 ? `${earthquakes.length} seisme${earthquakes.length > 1 ? "s" : ""} (rayon 300km). ` : ""}${eonetEvents.length > 0 ? `${eonetEvents.length} evenement${eonetEvents.length > 1 ? "s" : ""} naturel${eonetEvents.length > 1 ? "s" : ""} NASA. ` : ""}${reliefAlerts.length > 0 ? `${reliefAlerts.length} alerte${reliefAlerts.length > 1 ? "s" : ""} humanitaire${reliefAlerts.length > 1 ? "s" : ""}.` : ""}`}
-          icon={Alert01Icon}
-        />
+
+        {/* Seismic risk level */}
+        <div className="flex items-center gap-3 py-2 border-b border-border">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${seismicRisk.variant === "red" ? "bg-pastel-red-bg" : seismicRisk.variant === "yellow" ? "bg-pastel-yellow-bg" : "bg-pastel-green-bg"}`}>
+            <span className="text-xs font-bold">{earthquakes.length}</span>
+          </div>
+          <div className="flex-1">
+            <div className="text-[11px] font-medium">Risque sismique : {seismicRisk.level}</div>
+            <div className="text-[10px] text-muted-foreground leading-[1.5]">{seismicRisk.narrative}</div>
+          </div>
+        </div>
+
+        {eonetEvents.length > 0 && (
+          <NarrativeBlock
+            text={`${eonetEvents.length} evenement${eonetEvents.length > 1 ? "s" : ""} naturel${eonetEvents.length > 1 ? "s" : ""} actif${eonetEvents.length > 1 ? "s" : ""} detecte${eonetEvents.length > 1 ? "s" : ""} par la NASA dans un rayon de 500km.`}
+            icon={Alert01Icon}
+          />
+        )}
+        {reliefAlerts.length > 0 && (
+          <NarrativeBlock
+            text={`${reliefAlerts.length} alerte${reliefAlerts.length > 1 ? "s" : ""} humanitaire${reliefAlerts.length > 1 ? "s" : ""} en cours pour ${location.country || "cette region"}.`}
+            icon={Alert01Icon}
+          />
+        )}
       </SectionCard>
 
       {/* EONET Natural Events */}
@@ -709,7 +930,7 @@ function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
             <Tag variant="purple">NASA EONET</Tag>
             <span className="text-[10px] text-muted-foreground">Evenements naturels actifs</span>
           </div>
-          {eonetEvents.map((evt) => {
+          {eonetEvents.slice(0, 3).map((evt) => {
             const catInfo = getEONETCategoryInfo(evt.category);
             return (
               <div key={evt.id} className="py-3 border-b border-border last:border-b-0">
@@ -721,9 +942,6 @@ function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
                       {new Date(evt.date).toLocaleDateString("fr", { day: "numeric", month: "short", year: "numeric" })}
                       {evt.magnitudeValue !== null && ` · ${evt.magnitudeValue} ${evt.magnitudeUnit}`}
                     </div>
-                    {evt.description && (
-                      <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">{evt.description.slice(0, 200)}</p>
-                    )}
                   </div>
                 </div>
                 {evt.sourceUrl && (
@@ -734,6 +952,21 @@ function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
               </div>
             );
           })}
+          {eonetEvents.length > 3 && (
+            <Expandable label={`${eonetEvents.length - 3} evenements supplementaires`}>
+              {eonetEvents.slice(3).map((evt) => {
+                const catInfo = getEONETCategoryInfo(evt.category);
+                return (
+                  <div key={evt.id} className="py-2 border-b border-border last:border-b-0">
+                    <div className="flex items-center gap-2">
+                      <Tag variant={catInfo.variant}>{catInfo.label}</Tag>
+                      <span className="text-[11px] font-medium flex-1 truncate">{evt.title}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </Expandable>
+          )}
         </SectionCard>
       )}
 
@@ -744,45 +977,36 @@ function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
             <Tag variant="red">Sismique</Tag>
             <span className="text-[10px] text-muted-foreground">USGS · Rayon 300km</span>
           </div>
-          {/* Seismic narrative */}
-          {(() => {
-            const maxMag = Math.max(...earthquakes.map(e => e.magnitude));
-            const hasTsunami = earthquakes.some(e => e.tsunami);
-            const recentCount = earthquakes.filter(e => Date.now() - e.time < 7 * 24 * 3600000).length;
-            return (
-              <>
-                <NarrativeBlock
-                  text={`Magnitude maximale : M${maxMag.toFixed(1)}. ${recentCount} evenement${recentCount > 1 ? "s" : ""} cette semaine.${hasTsunami ? " Alerte tsunami emise pour un ou plusieurs evenements." : ""}`}
-                  icon={Alert01Icon}
-                />
-                {maxMag >= 5 && (
-                  <NarrativeBlock text="Seisme significatif. Verifiez les consignes de securite locales. En cas de repliques, abritez-vous sous un meuble solide." icon={Alert01Icon} />
-                )}
-              </>
-            );
-          })()}
-          <div className="mt-2">
-            {earthquakes.map((eq, i) => (
-              <div key={i} className="flex items-start gap-2.5 py-2.5 border-b border-border last:border-b-0">
-                <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-lg mt-0.5 flex-shrink-0 ${
-                  eq.magnitude >= 5 ? "bg-pastel-red-bg text-pastel-red-text" :
-                  eq.magnitude >= 3 ? "bg-pastel-yellow-bg text-pastel-yellow-text" :
-                  "bg-secondary text-muted-foreground"
-                }`}>
-                  M{eq.magnitude.toFixed(1)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-medium leading-tight">{eq.place}</div>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                    <span>Prof. {eq.depth.toFixed(0)}km</span>
-                    <span>{new Date(eq.time).toLocaleDateString("fr", { day: "numeric", month: "short" })}</span>
-                    {eq.tsunami && <Tag variant="red">Tsunami</Tag>}
-                    {eq.felt && <span>Ressenti {eq.felt}x</span>}
-                  </div>
+          {earthquakes.slice(0, 5).map((eq, i) => (
+            <div key={i} className="flex items-start gap-2.5 py-2.5 border-b border-border last:border-b-0">
+              <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-lg mt-0.5 flex-shrink-0 ${
+                eq.magnitude >= 5 ? "bg-pastel-red-bg text-pastel-red-text" :
+                eq.magnitude >= 3 ? "bg-pastel-yellow-bg text-pastel-yellow-text" :
+                "bg-secondary text-muted-foreground"
+              }`}>
+                M{eq.magnitude.toFixed(1)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-medium leading-tight">{eq.place}</div>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                  <span>Prof. {eq.depth.toFixed(0)}km</span>
+                  <span>{new Date(eq.time).toLocaleDateString("fr", { day: "numeric", month: "short" })}</span>
+                  {eq.tsunami && <Tag variant="red">Tsunami</Tag>}
+                  {eq.felt && <span>Ressenti {eq.felt}x</span>}
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+          {earthquakes.length > 5 && (
+            <Expandable label={`${earthquakes.length - 5} seismes supplementaires`}>
+              {earthquakes.slice(5).map((eq, i) => (
+                <div key={i} className="flex items-center gap-2 py-2 border-b border-border last:border-b-0">
+                  <span className="text-[10px] font-mono font-semibold bg-secondary px-1.5 py-0.5 rounded">M{eq.magnitude.toFixed(1)}</span>
+                  <span className="text-[10px] text-muted-foreground truncate">{eq.place}</span>
+                </div>
+              ))}
+            </Expandable>
+          )}
         </SectionCard>
       )}
 
@@ -791,9 +1015,9 @@ function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
         <SectionCard className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
           <div className="flex items-center gap-2 mb-3">
             <Tag variant="yellow">ReliefWeb</Tag>
-            <span className="text-[10px] text-muted-foreground">Catastrophes et alertes humanitaires</span>
+            <span className="text-[10px] text-muted-foreground">Catastrophes et alertes</span>
           </div>
-          {reliefAlerts.map((alert) => (
+          {reliefAlerts.slice(0, 3).map((alert) => (
             <div key={alert.id} className="py-2.5 border-b border-border last:border-b-0">
               <div className="text-[11.5px] font-medium leading-tight">{alert.title}</div>
               <div className="flex items-center gap-2 mt-1">
@@ -805,13 +1029,22 @@ function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
               </a>
             </div>
           ))}
+          {reliefAlerts.length > 3 && (
+            <Expandable label={`${reliefAlerts.length - 3} alertes supplementaires`}>
+              {reliefAlerts.slice(3).map((alert) => (
+                <div key={alert.id} className="py-2 border-b border-border last:border-b-0">
+                  <div className="text-[11px] font-medium truncate">{alert.title}</div>
+                </div>
+              ))}
+            </Expandable>
+          )}
         </SectionCard>
       )}
     </div>
   );
 }
 
-// ====== CULTURE TAB (enriched) ======
+// ====== CULTURE TAB ======
 
 function CultureTab({ country, location }: { country: CountryData | null; location: GeoResult }) {
   if (!country) return <EmptyState text="Donnees culturelles indisponibles pour cette position." />;
@@ -822,10 +1055,10 @@ function CultureTab({ country, location }: { country: CountryData | null; locati
 
   return (
     <div className="space-y-3">
-      {/* Narrative */}
+      {/* Travel brief — key info first */}
       <SectionCard className="animate-fade-in-up">
         <div className="flex items-center gap-2 mb-3">
-          <Tag variant="purple">Identite culturelle</Tag>
+          <Tag variant="purple">Essentiel voyageur</Tag>
         </div>
         <NarrativeBlock text={`Parlez ${langText}. Prevoyez vos ${currText}.`} icon={Globe02Icon} />
         {country.callingCode && (
@@ -834,9 +1067,24 @@ function CultureTab({ country, location }: { country: CountryData | null; locati
         {country.carSide && (
           <NarrativeBlock text={`On roule a ${country.carSide === "right" ? "droite" : "gauche"}. Debut de semaine : ${country.startOfWeek === "monday" ? "lundi" : country.startOfWeek === "sunday" ? "dimanche" : country.startOfWeek}.`} icon={InformationCircleIcon} />
         )}
+        {/* Quick facts grid */}
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          <div className="rounded-xl p-2.5 bg-secondary/40 text-center">
+            <div className="text-lg">{country.flagEmoji}</div>
+            <div className="text-[9px] text-muted-foreground uppercase mt-0.5">{country.name}</div>
+          </div>
+          <div className="rounded-xl p-2.5 bg-secondary/40 text-center">
+            <div className="text-sm font-serif font-semibold">{density}</div>
+            <div className="text-[9px] text-muted-foreground uppercase mt-0.5">hab/km²</div>
+          </div>
+          <div className="rounded-xl p-2.5 bg-secondary/40 text-center">
+            <div className="text-sm font-serif font-semibold">{country.borders.length}</div>
+            <div className="text-[9px] text-muted-foreground uppercase mt-0.5">frontieres</div>
+          </div>
+        </div>
       </SectionCard>
 
-      {/* Country card */}
+      {/* Country card — progressive */}
       <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
         <div className="flex items-center gap-3 mb-4">
           {country.flag && (
@@ -854,15 +1102,17 @@ function CultureTab({ country, location }: { country: CountryData | null; locati
         <DataRow label="Continent" value={country.continents.join(", ")} />
         <DataRow label="Region" value={`${country.subregion}, ${country.region}`} />
         <DataRow label="Population" value={country.population.toLocaleString("fr")} mono />
-        <DataRow label="Superficie" value={`${country.area.toLocaleString("fr")} km\u00B2`} mono />
-        <DataRow label="Langues" value={langText} />
-        <DataRow label="Monnaie" value={currText} />
-        {country.borders.length > 0 && (
-          <DataRow label="Frontieres" value={`${country.borders.length} pays`} />
-        )}
-        {country.gini !== undefined && (
-          <DataRow label="Indice Gini" value={country.gini.toFixed(1)} mono />
-        )}
+        <Expandable label="Donnees detaillees">
+          <DataRow label="Superficie" value={`${country.area.toLocaleString("fr")} km\u00B2`} mono />
+          <DataRow label="Langues" value={langText} />
+          <DataRow label="Monnaie" value={currText} />
+          {country.borders.length > 0 && (
+            <DataRow label="Frontieres" value={`${country.borders.length} pays (${country.borders.slice(0, 5).join(", ")}${country.borders.length > 5 ? "..." : ""})`} />
+          )}
+          {country.gini !== undefined && (
+            <DataRow label="Indice Gini" value={country.gini.toFixed(1)} mono />
+          )}
+        </Expandable>
       </SectionCard>
 
       {/* Density + Gini insight */}
@@ -884,10 +1134,10 @@ function CultureTab({ country, location }: { country: CountryData | null; locati
         <div className="mt-3 px-3 py-2.5 rounded-lg bg-secondary/50">
           <div className="text-[10px] text-muted-foreground leading-relaxed">
             {density > 200
-              ? "Zone a forte densite. Affluence probable dans les transports et lieux publics."
+              ? "Zone a forte densite. Affluence probable dans les transports et lieux publics. Reservez a l'avance."
               : density > 50
               ? "Densite moderee. Equilibre entre espaces urbains et naturels."
-              : "Faible densite. Grands espaces et tranquillite."}
+              : "Faible densite. Grands espaces et tranquillite. Verifiez les distances entre les services."}
           </div>
         </div>
       </SectionCard>
@@ -895,7 +1145,7 @@ function CultureTab({ country, location }: { country: CountryData | null; locati
   );
 }
 
-// ====== WIKI TAB (enriched with Wikimedia images) ======
+// ====== WIKI TAB ======
 
 function WikiTab({ wiki, wikiImages, location }: { wiki: WikiData | null; wikiImages: WikimediaImage[]; location: GeoResult }) {
   if (!wiki && wikiImages.length === 0) return <EmptyState text="Aucun article encyclopedique trouve pour ce lieu." />;
@@ -914,7 +1164,17 @@ function WikiTab({ wiki, wikiImages, location }: { wiki: WikiData | null; wikiIm
             <span className="text-[10px] text-muted-foreground">Wikipedia</span>
           </div>
           <h3 className="font-serif text-lg font-semibold mb-2 leading-tight tracking-tight">{wiki.title}</h3>
-          <p className="text-[11.5px] leading-[1.7] text-muted-foreground">{wiki.extract}</p>
+          {/* Show first ~300 chars, expand for full */}
+          {wiki.extract.length > 300 ? (
+            <>
+              <p className="text-[11.5px] leading-[1.7] text-muted-foreground">{wiki.extract.slice(0, 300)}...</p>
+              <Expandable label="Lire la suite">
+                <p className="text-[11.5px] leading-[1.7] text-muted-foreground">{wiki.extract}</p>
+              </Expandable>
+            </>
+          ) : (
+            <p className="text-[11.5px] leading-[1.7] text-muted-foreground">{wiki.extract}</p>
+          )}
           {wiki.url && (
             <a href={wiki.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-4 text-[11px] font-semibold text-foreground hover:opacity-60 transition-opacity">
               Lire l'article complet
@@ -929,10 +1189,10 @@ function WikiTab({ wiki, wikiImages, location }: { wiki: WikiData | null; wikiIm
         <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
           <div className="flex items-center gap-2 mb-3">
             <Tag variant="blue">Wikimedia</Tag>
-            <span className="text-[10px] text-muted-foreground">Photos geolocalisees</span>
+            <span className="text-[10px] text-muted-foreground">{wikiImages.length} photos geolocalisees</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {wikiImages.slice(0, 6).map((img, i) => (
+            {wikiImages.slice(0, 4).map((img, i) => (
               <a key={i} href={img.descriptionUrl || img.url} target="_blank" rel="noopener noreferrer" className="group relative overflow-hidden rounded-lg aspect-[4/3]">
                 <img
                   src={img.thumbUrl}
@@ -946,12 +1206,26 @@ function WikiTab({ wiki, wikiImages, location }: { wiki: WikiData | null; wikiIm
               </a>
             ))}
           </div>
+          {wikiImages.length > 4 && (
+            <Expandable label={`${wikiImages.length - 4} photos supplementaires`}>
+              <div className="grid grid-cols-2 gap-2">
+                {wikiImages.slice(4).map((img, i) => (
+                  <a key={i} href={img.descriptionUrl || img.url} target="_blank" rel="noopener noreferrer" className="group relative overflow-hidden rounded-lg aspect-[4/3]">
+                    <img src={img.thumbUrl} alt={img.title} className="w-full h-full object-cover" loading="lazy" />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-foreground/60 to-transparent p-2 pt-6">
+                      <span className="text-[9px] text-primary-foreground leading-tight line-clamp-2">{img.title}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </Expandable>
+          )}
         </SectionCard>
       )}
 
-      {/* Climate zone */}
+      {/* Geographic context */}
       <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-        <SectionTitle>Zone climatique</SectionTitle>
+        <SectionTitle>Contexte geographique</SectionTitle>
         <DataRow label="Latitude" value={location.lat.toFixed(6)} mono />
         <DataRow label="Longitude" value={location.lon.toFixed(6)} mono />
         <DataRow label="Hemisphere" value={location.lat >= 0 ? "Nord" : "Sud"} />
@@ -990,11 +1264,8 @@ const POI_LABELS: Record<string, string> = {
 };
 
 function NearbyTab({ pois, location }: { pois: OverpassPOI[]; location: GeoResult }) {
-  const nearestTransport = pois.find((p) => p.type === "stop_position" || p.type === "station");
-  const nearestHealth = pois.find((p) => ["hospital", "pharmacy", "doctors", "dentist"].includes(p.type));
-  const nearestEmergency = pois.find((p) => ["defibrillator", "police", "fire_station"].includes(p.type));
+  const walkability = useMemo(() => computeWalkabilityInsight(pois), [pois]);
 
-  // Group POIs by category
   const grouped = useMemo(() => {
     const groups: Record<string, OverpassPOI[]> = {
       "Sante": [], "Transport": [], "Urgence": [], "Restauration": [],
@@ -1015,30 +1286,30 @@ function NearbyTab({ pois, location }: { pois: OverpassPOI[]; location: GeoResul
 
   return (
     <div className="space-y-3">
-      {/* Smart narratives */}
-      {(nearestTransport || nearestHealth || nearestEmergency) && (
-        <SectionCard className="animate-fade-in-up">
-          <div className="flex items-center gap-2 mb-2">
-            <Tag variant="blue">Mobilite intelligente</Tag>
+      {/* Walkability insight */}
+      <SectionCard className="animate-fade-in-up">
+        <div className="flex items-center gap-2 mb-2">
+          <Tag variant={walkability.score === "Excellent" || walkability.score === "Bon" ? "green" : "yellow"}>
+            Praticabilite : {walkability.score}
+          </Tag>
+          <span className="text-[10px] text-muted-foreground">{pois.length} lieux</span>
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-[1.6] mb-2">{walkability.narrative}</p>
+        {walkability.details.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {walkability.details.map((d, i) => (
+              <span key={i} className="text-[9px] px-2 py-1 rounded-full bg-pastel-green-bg/40 text-pastel-green-text font-medium">✓ {d}</span>
+            ))}
           </div>
-          {nearestTransport && (
-            <NarrativeBlock text={`Station "${nearestTransport.name}" detectee a ${nearestTransport.distance}m. Transport public accessible a pied.`} icon={Location01Icon} />
-          )}
-          {nearestHealth && (
-            <NarrativeBlock text={`${POI_LABELS[nearestHealth.type] || "Service de sante"} "${nearestHealth.name}" a ${nearestHealth.distance}m.`} icon={Alert01Icon} />
-          )}
-          {nearestEmergency && (
-            <NarrativeBlock text={`${POI_LABELS[nearestEmergency.type] || "Service d'urgence"} a ${nearestEmergency.distance}m.`} icon={Alert01Icon} />
-          )}
-        </SectionCard>
-      )}
+        )}
+      </SectionCard>
 
-      {/* Grouped POIs */}
+      {/* Grouped POIs — show first 3 per group, expand rest */}
       {grouped.length > 0 ? (
         grouped.map(([groupName, groupPois], gi) => (
-          <SectionCard key={groupName} className="animate-fade-in-up" style={{ animationDelay: `${(gi + 1) * 60}ms` }}>
+          <SectionCard key={groupName} className="animate-fade-in-up" style={{ animationDelay: `${(gi + 1) * 40}ms` }}>
             <SectionTitle sub={`${groupPois.length} lieu${groupPois.length > 1 ? "x" : ""}`}>{groupName}</SectionTitle>
-            {groupPois.map((poi) => (
+            {groupPois.slice(0, 3).map((poi) => (
               <div key={poi.id} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
                 <div className="min-w-0 flex-1">
                   <div className="text-[11.5px] font-medium truncate">{poi.name}</div>
@@ -1059,6 +1330,29 @@ function NearbyTab({ pois, location }: { pois: OverpassPOI[]; location: GeoResul
                 </button>
               </div>
             ))}
+            {groupPois.length > 3 && (
+              <Expandable label={`${groupPois.length - 3} lieux supplementaires`}>
+                {groupPois.slice(3).map((poi) => (
+                  <div key={poi.id} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-medium truncate">{poi.name}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[9px] text-muted-foreground">{POI_LABELS[poi.type] || poi.type}</span>
+                        {poi.distance !== undefined && (
+                          <span className="text-[9px] text-muted-foreground font-mono">{poi.distance}m</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => window.open(`geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})`, "_blank")}
+                      className="w-6 h-6 rounded bg-secondary flex items-center justify-center text-muted-foreground flex-shrink-0 ml-2"
+                    >
+                      <HugeiconsIcon icon={Navigation01Icon} size={11} />
+                    </button>
+                  </div>
+                ))}
+              </Expandable>
+            )}
           </SectionCard>
         ))
       ) : (
@@ -1068,7 +1362,7 @@ function NearbyTab({ pois, location }: { pois: OverpassPOI[]; location: GeoResul
   );
 }
 
-// ====== NATURE TAB (enriched) ======
+// ====== NATURE TAB ======
 
 function NatureTab({ species, location }: { species: GBIFSpecies[]; location: GeoResult }) {
   const kingdoms = useMemo(() => {
@@ -1088,22 +1382,22 @@ function NatureTab({ species, location }: { species: GBIFSpecies[]; location: Ge
     return Object.entries(f).sort((a, b) => b[1] - a[1]).slice(0, 6);
   }, [species]);
 
+  const bioIndex = useMemo(() => computeBiodiversityIndex(species), [species]);
+
   if (species.length === 0) return <EmptyState text="Aucune observation d'especes recensee dans cette zone." />;
 
   return (
     <div className="space-y-3">
+      {/* Biodiversity index */}
       <SectionCard className="animate-fade-in-up">
         <div className="flex items-center gap-2 mb-3">
-          <Tag variant="green">Biodiversite locale</Tag>
+          <Tag variant={bioIndex.variant}>Biodiversite : {bioIndex.score}</Tag>
           <span className="text-[10px] text-muted-foreground">GBIF</span>
         </div>
-        <NarrativeBlock
-          text={`${species.length} espece${species.length > 1 ? "s" : ""} observee${species.length > 1 ? "s" : ""} dans un rayon de 5km. ${Object.entries(kingdoms).map(([k, v]) => `${v} ${k}`).join(", ")}.`}
-          icon={Leaf01Icon}
-        />
+        <p className="text-[11px] text-muted-foreground leading-[1.6] mb-3">{bioIndex.narrative}</p>
 
         {/* Kingdom pills */}
-        <div className="flex flex-wrap gap-1.5 mt-3">
+        <div className="flex flex-wrap gap-1.5">
           {Object.entries(kingdoms).map(([k, v]) => (
             <span key={k} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-pastel-green-bg text-pastel-green-text text-[9px] font-semibold uppercase tracking-wide">
               {k} <span className="opacity-60">{v}</span>
@@ -1127,10 +1421,10 @@ function NatureTab({ species, location }: { species: GBIFSpecies[]; location: Ge
         </SectionCard>
       )}
 
-      {/* Species list */}
+      {/* Species list — show first 5, expand rest */}
       <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-        <SectionTitle>Especes observees</SectionTitle>
-        {species.map((sp, i) => (
+        <SectionTitle sub={`${species.length} especes`}>Especes observees</SectionTitle>
+        {species.slice(0, 5).map((sp, i) => (
           <div key={i} className="flex items-start gap-3 py-2.5 border-b border-border last:border-b-0">
             {sp.media ? (
               <img src={sp.media} alt={sp.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-border" loading="lazy" />
@@ -1148,16 +1442,31 @@ function NatureTab({ species, location }: { species: GBIFSpecies[]; location: Ge
                     {sp.kingdom}
                   </span>
                 )}
-                {sp.family && (
-                  <span className="text-[9px] text-muted-foreground">{sp.family}</span>
-                )}
-                {sp.order && (
-                  <span className="text-[9px] text-muted-foreground">· {sp.order}</span>
-                )}
+                {sp.family && <span className="text-[9px] text-muted-foreground">{sp.family}</span>}
+                {sp.order && <span className="text-[9px] text-muted-foreground">· {sp.order}</span>}
               </div>
             </div>
           </div>
         ))}
+        {species.length > 5 && (
+          <Expandable label={`${species.length - 5} especes supplementaires`}>
+            {species.slice(5).map((sp, i) => (
+              <div key={i} className="flex items-center gap-2.5 py-2 border-b border-border last:border-b-0">
+                {sp.media ? (
+                  <img src={sp.media} alt={sp.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" loading="lazy" />
+                ) : (
+                  <div className="w-8 h-8 rounded bg-pastel-green-bg flex items-center justify-center flex-shrink-0">
+                    <HugeiconsIcon icon={Leaf01Icon} size={12} className="text-pastel-green-text" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-medium truncate">{sp.name}</div>
+                  <div className="text-[9px] text-muted-foreground italic">{sp.scientificName}</div>
+                </div>
+              </div>
+            ))}
+          </Expandable>
+        )}
       </SectionCard>
     </div>
   );
