@@ -952,3 +952,290 @@ export function getEONETCategoryInfo(category: string): { label: string; variant
   if (c.includes("landslide")) return { label: "Glissement", variant: "yellow" };
   return { label: category, variant: "yellow" };
 }
+
+// Anomaly insight generator - detects critical events in next 2 hours
+export function generateAnomalyInsight(weather: WeatherData): { message: string; priority: "critical" | "warning" | "info" | null } {
+  const { current, hourly } = weather;
+  const next2Hours = hourly.slice(0, 2);
+
+  // Priority 1: Critical danger
+  if (current.windGusts > 80) {
+    return { message: "Rafales dangereuses. Évitez les zones exposées.", priority: "critical" };
+  }
+  if (current.visibility < 500) {
+    return { message: "Visibilité quasi nulle. Ne prenez pas la route.", priority: "critical" };
+  }
+  if (current.uvIndex > 10) {
+    return { message: "UV extrême : brûlure en moins de 10 min sans protection.", priority: "critical" };
+  }
+  if (current.feelsLike > 35) {
+    return { message: "Canicule : hydratation impérative toutes les 20 minutes.", priority: "critical" };
+  }
+  if (current.feelsLike < -10) {
+    return { message: "Grand froid : risque d'hypothermie. Limitez l'exposition.", priority: "critical" };
+  }
+
+  // Priority 2: Health warnings
+  if (current.uvIndex > 7) {
+    return { message: "UV très fort : protection indispensable. Évitez 12h-16h.", priority: "warning" };
+  }
+  if (current.feelsLike > 30) {
+    return { message: "Forte chaleur. Restez hydraté et cherchez l'ombre.", priority: "warning" };
+  }
+
+  // Priority 3: Comfort/discomfort
+  const nextRain = next2Hours.find(h => h.precipitationProb > 50);
+  if (nextRain) {
+    const timeUntilRain = Math.round((new Date(nextRain.time).getTime() - Date.now()) / 60000);
+    if (timeUntilRain < 60) {
+      return { message: `Pluie probable dans ${timeUntilRain} min, abritez-vous.`, priority: "warning" };
+    }
+    return { message: `Pluie probable vers ${new Date(nextRain.time).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}.`, priority: "info" };
+  }
+
+  if (current.windGusts > 50) {
+    return { message: "Rafales fortes. Sécurisez vos affaires.", priority: "warning" };
+  }
+  if (current.visibility < 2000) {
+    return { message: "Visibilité réduite. Activez vos feux de croisement.", priority: "warning" };
+  }
+
+  // No anomaly
+  return { message: "", priority: null };
+}
+
+// Behavioral insight generator - generates actionable advice based on AQI and pollen
+export function generateBehavioralInsight(airQuality: AirQualityData): { message: string; severity: "good" | "moderate" | "bad" | "danger" } {
+  const { aqi, allergenIndex } = airQuality;
+  
+  // Check for high pollen
+  const hasHighPollen = Object.values(allergenIndex).some(v => v >= 50);
+  
+  // Base AQI message
+  let baseMessage = "";
+  let severity: "good" | "moderate" | "bad" | "danger" = "good";
+  
+  if (aqi <= 20) {
+    baseMessage = "Qualité de l'air cristalline. Aérez largement, c'est idéal.";
+    severity = "good";
+  } else if (aqi <= 40) {
+    baseMessage = "Air de bonne qualité. Aucune précaution nécessaire.";
+    severity = "good";
+  } else if (aqi <= 60) {
+    baseMessage = "Qualité acceptable. Personnes sensibles : limitez l'effort prolongé.";
+    severity = "moderate";
+  } else if (aqi <= 80) {
+    baseMessage = "Air dégradé. Réduisez les activités physiques intenses.";
+    severity = "bad";
+  } else if (aqi <= 100) {
+    baseMessage = "Mauvais pour l'asthme aujourd'hui. Portez un masque si besoin.";
+    severity = "bad";
+  } else {
+    baseMessage = "Qualité de l'air dangereuse. Restez à l'intérieur si possible.";
+    severity = "danger";
+  }
+  
+  // Add pollen warning if applicable
+  if (hasHighPollen) {
+    baseMessage += " Attention aux pollens élevés. Allergiques : restez à l'intérieur.";
+    if (severity === "good") severity = "moderate";
+  }
+  
+  return { message: baseMessage, severity };
+}
+
+// Global alert state calculator - determines CLEAR/ATTENTION/URGENCE status
+export function computeGlobalAlertState(earthquakes: EarthquakeData[], eonetEvents: EONETEvent[], reliefAlerts: ReliefWebAlert[]): { state: "CLEAR" | "ATTENTION" | "URGENCE"; variant: "green" | "yellow" | "red"; message: string } {
+  // Check for URGENCE conditions
+  const majorEarthquake = earthquakes.some(e => e.magnitude >= 6);
+  const tsunamiRisk = earthquakes.some(e => e.tsunami);
+  const nearbyFire = eonetEvents.some(e => {
+    const cat = e.category.toLowerCase();
+    return (cat.includes("wildfire") || cat.includes("feu")) && e.magnitudeValue && e.magnitudeValue > 1000;
+  });
+  const nearbyFlood = eonetEvents.some(e => {
+    const cat = e.category.toLowerCase();
+    return cat.includes("flood") && e.magnitudeValue && e.magnitudeValue > 1000;
+  });
+
+  if (majorEarthquake || tsunamiRisk || nearbyFire || nearbyFlood) {
+    return {
+      state: "URGENCE",
+      variant: "red",
+      message: "Danger immédiat détecté. Vérifiez les consignes locales."
+    };
+  }
+
+  // Check for ATTENTION conditions
+  const moderateEarthquake = earthquakes.some(e => e.magnitude >= 4);
+  const anyNaturalEvent = eonetEvents.length > 0;
+  const anyHumanitarianAlert = reliefAlerts.length > 0;
+
+  if (moderateEarthquake || anyNaturalEvent || anyHumanitarianAlert) {
+    return {
+      state: "ATTENTION",
+      variant: "yellow",
+      message: "Surveillance active. Événements en cours dans la région."
+    };
+  }
+
+  // CLEAR
+  return {
+    state: "CLEAR",
+    variant: "green",
+    message: "Zone calme. Aucun événement critique détecté."
+  };
+}
+
+// Alert timeline generator - creates chronological timeline of events
+export interface TimelineEvent {
+  id: string;
+  type: "earthquake" | "eonet" | "relief";
+  date: string;
+  title: string;
+  description: string;
+  variant: "red" | "purple" | "yellow" | "blue";
+}
+
+export function generateAlertTimeline(earthquakes: EarthquakeData[], eonetEvents: EONETEvent[], reliefAlerts: ReliefWebAlert[]): TimelineEvent[] {
+  const events: TimelineEvent[] = [];
+
+  // Add earthquakes
+  earthquakes.forEach(eq => {
+    events.push({
+      id: `eq-${eq.time}`,
+      type: "earthquake",
+      date: new Date(eq.time).toISOString(),
+      title: `Séisme M${eq.magnitude.toFixed(1)}`,
+      description: eq.place,
+      variant: eq.magnitude >= 5 ? "red" : eq.magnitude >= 3 ? "yellow" : "yellow"
+    });
+  });
+
+  // Add EONET events
+  eonetEvents.forEach(evt => {
+    const catInfo = getEONETCategoryInfo(evt.category);
+    events.push({
+      id: `eonet-${evt.id}`,
+      type: "eonet",
+      date: evt.date,
+      title: catInfo.label,
+      description: evt.title,
+      variant: catInfo.variant
+    });
+  });
+
+  // Add ReliefWeb alerts
+  reliefAlerts.forEach(alert => {
+    events.push({
+      id: `relief-${alert.id}`,
+      type: "relief",
+      date: alert.date,
+      title: alert.type || "Alerte",
+      description: alert.title,
+      variant: "yellow"
+    });
+  });
+
+  // Sort by date (most recent first) and return top 5
+  return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+}
+
+// Hero insight generator - generates the most prescriptive insight based on context
+export function generateHeroInsight(
+  weather: WeatherData,
+  airQuality: AirQualityData,
+  earthquakes: EarthquakeData[],
+  eonetEvents: EONETEvent[],
+  reliefAlerts: ReliefWebAlert[]
+): { message: string; variant: "red" | "yellow" | "green" | "blue" } {
+  // Priority 1: Critical danger (red)
+  const majorEarthquake = earthquakes.some(e => e.magnitude >= 6);
+  const tsunamiRisk = earthquakes.some(e => e.tsunami);
+  const nearbyFire = eonetEvents.some(e => {
+    const cat = e.category.toLowerCase();
+    return (cat.includes("wildfire") || cat.includes("feu")) && e.magnitudeValue && e.magnitudeValue > 1000;
+  });
+  const nearbyFlood = eonetEvents.some(e => {
+    const cat = e.category.toLowerCase();
+    return cat.includes("flood") && e.magnitudeValue && e.magnitudeValue > 1000;
+  });
+
+  if (majorEarthquake) {
+    const eq = earthquakes.find(e => e.magnitude >= 6);
+    return {
+      message: `⚠ Séisme M${eq?.magnitude.toFixed(1)} détecté. Vérifiez les consignes locales.`,
+      variant: "red"
+    };
+  }
+  if (tsunamiRisk) {
+    return { message: "⚠ Risque de tsunami. Éloignez-vous des côtes.", variant: "red" };
+  }
+  if (nearbyFire) {
+    return { message: "⚠ Feu détecté à proximité. Suivez les instructions d'évacuation.", variant: "red" };
+  }
+  if (nearbyFlood) {
+    return { message: "⚠ Inondation en cours. Montez aux étages supérieurs.", variant: "red" };
+  }
+
+  // Priority 2: Weather extremes (red/yellow)
+  if (weather.current.feelsLike > 35) {
+    return { message: "☀ Canicule en cours. Hydratez-vous et restez à l'intérieur.", variant: "red" };
+  }
+  if (weather.current.feelsLike < -10) {
+    return { message: "❄ Grand froid. Limitez l'exposition et couvrez-vous.", variant: "red" };
+  }
+  if (weather.current.uvIndex > 10) {
+    return { message: "☀ UV extrême. Protection indispensable. Évitez 12h-16h.", variant: "red" };
+  }
+  if (weather.current.windGusts > 80) {
+    return { message: "💨 Rafales dangereuses. Évitez les zones exposées.", variant: "red" };
+  }
+  if (weather.current.feelsLike > 30) {
+    return { message: "☀ Chaleur intense. Cherchez l'ombre et hydratez-vous.", variant: "yellow" };
+  }
+  if (weather.current.feelsLike < -5) {
+    return { message: "❄ Froid sévère. Couvrez-vous bien.", variant: "yellow" };
+  }
+  if (weather.current.uvIndex > 7) {
+    return { message: "☀ UV très fort. Protection indispensable.", variant: "yellow" };
+  }
+
+  // Priority 3: Air quality (red/yellow)
+  if (airQuality.aqi > 100) {
+    return { message: "💨 Qualité de l'air dangereuse. Restez à l'intérieur.", variant: "red" };
+  }
+  if (airQuality.aqi > 60) {
+    return { message: "💨 Air dégradé. Réduisez les activités physiques.", variant: "yellow" };
+  }
+
+  // Priority 4: Moderate alerts (yellow)
+  const moderateEarthquake = earthquakes.some(e => e.magnitude >= 4);
+  const anyNaturalEvent = eonetEvents.length > 0;
+  const anyHumanitarianAlert = reliefAlerts.length > 0;
+
+  if (moderateEarthquake) {
+    const eq = earthquakes.find(e => e.magnitude >= 4);
+    return {
+      message: `⚡ Séisme M${eq?.magnitude.toFixed(1)} détecté. Surveillance active.`,
+      variant: "yellow"
+    };
+  }
+  if (anyNaturalEvent) {
+    return { message: "⚡ Événements naturels en cours dans la région.", variant: "yellow" };
+  }
+  if (anyHumanitarianAlert) {
+    return { message: "⚡ Alertes humanitaires en cours. Vérifiez les infos locales.", variant: "yellow" };
+  }
+
+  // Priority 5: Good conditions (green/blue)
+  if (airQuality.aqi <= 20) {
+    return { message: "✓ Qualité de l'air cristalline. Idéal pour le plein air.", variant: "green" };
+  }
+  if (weather.current.uvIndex <= 3 && airQuality.aqi <= 40) {
+    return { message: "✓ Conditions idéales. Profitez de l'extérieur.", variant: "green" };
+  }
+
+  // Default (blue)
+  return { message: "ℹ Conditions générales. Consultez les détails pour plus d'infos.", variant: "blue" };
+}

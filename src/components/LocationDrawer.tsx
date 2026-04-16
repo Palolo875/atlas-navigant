@@ -52,6 +52,11 @@ import {
   computeBiodiversityIndex,
   classifyDayType,
   getTimeContext,
+  generateAnomalyInsight,
+  generateBehavioralInsight,
+  computeGlobalAlertState,
+  generateAlertTimeline,
+  generateHeroInsight,
 } from "@/lib/api";
 
 interface LocationDrawerProps {
@@ -60,14 +65,13 @@ interface LocationDrawerProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type TabId = "weather" | "air" | "alerts" | "culture" | "wiki" | "nearby" | "nature";
+type TabId = "weather" | "air" | "alerts" | "savoir" | "nearby" | "nature";
 
 const TABS: { id: TabId; label: string; icon: any }[] = [
   { id: "weather", label: "Meteo", icon: Sun01Icon },
   { id: "air", label: "Air", icon: Leaf01Icon },
   { id: "alerts", label: "Alertes", icon: Alert01Icon },
-  { id: "culture", label: "Culture", icon: Globe02Icon },
-  { id: "wiki", label: "Savoir", icon: InformationCircleIcon },
+  { id: "savoir", label: "Savoir", icon: Globe02Icon },
   { id: "nearby", label: "Proximite", icon: Location01Icon },
   { id: "nature", label: "Nature", icon: Leaf01Icon },
 ];
@@ -203,6 +207,92 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
                 )}
               </div>
             )}
+
+            {/* Hero Header - Dynamic Summary */}
+            {weather && airQuality && (
+              <div className="mt-4 space-y-3">
+                {/* Location header */}
+                <div className="flex items-center gap-2">
+                  <span className="font-serif text-lg font-semibold leading-tight">{location.name}</span>
+                  {country && (
+                    <>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="text-sm text-muted-foreground">{country.flagEmoji} {country.name}</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Hero insight */}
+                {(() => {
+                  const heroInsight = generateHeroInsight(weather, airQuality, earthquakes, eonetEvents, reliefAlerts);
+                  return (
+                    <div className={`px-3 py-2.5 rounded-lg border-l-4 ${
+                      heroInsight.variant === "red" ? "bg-pastel-red-bg/30 border-pastel-red-text" :
+                      heroInsight.variant === "yellow" ? "bg-pastel-yellow-bg/30 border-pastel-yellow-text" :
+                      heroInsight.variant === "green" ? "bg-pastel-green-bg/30 border-pastel-green-text" :
+                      "bg-pastel-blue-bg/30 border-pastel-blue-text"
+                    }`}>
+                      <div className={`text-[11px] font-medium leading-relaxed ${
+                        heroInsight.variant === "red" ? "text-pastel-red-text" :
+                        heroInsight.variant === "yellow" ? "text-pastel-yellow-text" :
+                        heroInsight.variant === "green" ? "text-pastel-green-text" :
+                        "text-pastel-blue-text"
+                      }`}>
+                        {heroInsight.message}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Key metrics */}
+                <div className="grid grid-cols-4 gap-2">
+                  {/* Confort */}
+                  {comfort && (
+                    <div className="rounded-xl p-2 bg-secondary/40 text-center">
+                      <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Confort</div>
+                      <div className="text-lg font-serif font-semibold mt-0.5">{comfort.score}</div>
+                    </div>
+                  )}
+                  {/* Air */}
+                  <div className="rounded-xl p-2 bg-secondary/40 text-center">
+                    <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Air</div>
+                    <div className="text-lg font-serif font-semibold mt-0.5">{airQuality.aqi}</div>
+                  </div>
+                  {/* Alertes */}
+                  {(() => {
+                    const alertState = computeGlobalAlertState(earthquakes, eonetEvents, reliefAlerts);
+                    return (
+                      <div className="rounded-xl p-2 bg-secondary/40 text-center">
+                        <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Alertes</div>
+                        <div className={`text-lg font-serif font-semibold mt-0.5 ${
+                          alertState.variant === "red" ? "text-pastel-red-text" :
+                          alertState.variant === "yellow" ? "text-pastel-yellow-text" :
+                          "text-pastel-green-text"
+                        }`}>
+                          {alertState.state === "URGENCE" ? "!" : alertState.state === "ATTENTION" ? "!" : "✓"}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {/* Biodiversité */}
+                  {species.length > 0 && (() => {
+                    const bioIndex = computeBiodiversityIndex(species);
+                    return (
+                      <div className="rounded-xl p-2 bg-secondary/40 text-center">
+                        <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Bio</div>
+                        <div className={`text-lg font-serif font-semibold mt-0.5 ${
+                          bioIndex.variant === "red" ? "text-pastel-red-text" :
+                          bioIndex.variant === "yellow" ? "text-pastel-yellow-text" :
+                          "text-pastel-green-text"
+                        }`}>
+                          {bioIndex.score}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Tabs */}
@@ -245,8 +335,7 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
                 {activeTab === "alerts" && (
                   <AlertsTab earthquakes={earthquakes} eonetEvents={eonetEvents} reliefAlerts={reliefAlerts} location={location} />
                 )}
-                {activeTab === "culture" && <CultureTab country={country} location={location} />}
-                {activeTab === "wiki" && <WikiTab wiki={wiki} wikiImages={wikiImages} location={location} />}
+                {activeTab === "savoir" && <SavoirTab country={country} wiki={wiki} wikiImages={wikiImages} location={location} />}
                 {activeTab === "nearby" && (
                   <NearbyTab pois={pois} location={location} />
                 )}
@@ -410,6 +499,7 @@ function WeatherTab({ weather, narratives, airQuality }: { weather: WeatherData;
   const dpInfo = getDewPointComfort(weather.current.dewPoint);
   const comfort = computeComfortScore(weather, airQuality);
   const pressureInfo = analyzePressureTrend(weather.current.pressure);
+  const anomalyInsight = generateAnomalyInsight(weather);
 
   return (
     <div className="space-y-3">
@@ -458,6 +548,25 @@ function WeatherTab({ weather, narratives, airQuality }: { weather: WeatherData;
         )}
       </SectionCard>
 
+      {/* Anomaly Insight - NIVEAU 1 */}
+      {anomalyInsight.priority && anomalyInsight.message && (
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "20ms" }}>
+          <div className={`px-3 py-2.5 rounded-lg ${
+            anomalyInsight.priority === "critical" ? "bg-pastel-red-bg/50" :
+            anomalyInsight.priority === "warning" ? "bg-pastel-yellow-bg/50" :
+            "bg-pastel-blue-bg/40"
+          }`}>
+            <div className={`text-[11px] font-medium ${
+              anomalyInsight.priority === "critical" ? "text-pastel-red-text" :
+              anomalyInsight.priority === "warning" ? "text-pastel-yellow-text" :
+              "text-pastel-blue-text"
+            }`}>
+              {anomalyInsight.priority === "critical" && "⚠ "}{anomalyInsight.message}
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
       {/* Narratives — progressive: show first 3, expand rest */}
       {narratives.length > 0 && (
         <SectionCard className="animate-fade-in-up" style={{ animationDelay: "40ms" }}>
@@ -478,168 +587,173 @@ function WeatherTab({ weather, narratives, airQuality }: { weather: WeatherData;
         </SectionCard>
       )}
 
-      {/* Conditions bento grid */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
-        <SectionTitle>Conditions actuelles</SectionTitle>
-        <div className="grid grid-cols-3 gap-2">
-          <MiniStat label="Humidite" value={`${weather.current.humidity}%`} accent={weather.current.humidity > 80} />
-          <MiniStat label="Pression" value={`${Math.round(weather.current.pressure)} hPa`} sub={pressureInfo.trend} accent={weather.current.pressure < 1000} />
-          <MiniStat label="Nuages" value={`${weather.current.cloudCover}%`} sub={weather.current.cloudCover > 80 ? "Couvert" : weather.current.cloudCover > 40 ? "Partiel" : "Degage"} />
-          <MiniStat label="Vent" value={`${weather.current.windSpeed} km/h`} sub={windDirectionToLabel(weather.current.windDirection)} accent={weather.current.windSpeed > 30} />
-          <MiniStat label="Rafales" value={`${weather.current.windGusts} km/h`} accent={weather.current.windGusts > 50} />
-          <MiniStat label="Precipitations" value={`${weather.current.precipitation} mm`} accent={weather.current.precipitation > 0} />
-        </div>
-        <Expandable label="Details avances">
+      {/* Conditions bento grid - NIVEAU 2 expandable par défaut */}
+      <Expandable label="Conditions actuelles" defaultOpen={false}>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
           <div className="grid grid-cols-3 gap-2">
-            <MiniStat
-              label="Visibilite"
-              value={weather.current.visibility >= 1000
-                ? `${(weather.current.visibility / 1000).toFixed(1)} km`
-                : `${weather.current.visibility} m`}
-              accent={weather.current.visibility < 2000}
-            />
-            <MiniStat label="Point de rosee" value={`${weather.current.dewPoint.toFixed(0)}°C`} sub={dpInfo.label} accent={weather.current.dewPoint >= 18} />
-            <MiniStat label="Altitude" value={`${Math.round(weather.elevation)}m`} sub={weather.elevation > 2500 ? "Haute alt." : weather.elevation > 1000 ? "Montagne" : "Plaine"} />
+            <MiniStat label="Humidite" value={`${weather.current.humidity}%`} accent={weather.current.humidity > 80} />
+            <MiniStat label="Pression" value={`${Math.round(weather.current.pressure)} hPa`} sub={pressureInfo.trend} accent={weather.current.pressure < 1000} />
+            <MiniStat label="Nuages" value={`${weather.current.cloudCover}%`} sub={weather.current.cloudCover > 80 ? "Couvert" : weather.current.cloudCover > 40 ? "Partiel" : "Degage"} />
+            <MiniStat label="Vent" value={`${weather.current.windSpeed} km/h`} sub={windDirectionToLabel(weather.current.windDirection)} accent={weather.current.windSpeed > 30} />
+            <MiniStat label="Rafales" value={`${weather.current.windGusts} km/h`} accent={weather.current.windGusts > 50} />
+            <MiniStat label="Precipitations" value={`${weather.current.precipitation} mm`} accent={weather.current.precipitation > 0} />
           </div>
-          <div className="mt-2 px-3 py-2 rounded-lg bg-secondary/50">
-            <div className="text-[10px] text-muted-foreground leading-relaxed">{pressureInfo.narrative}</div>
-          </div>
-        </Expandable>
-      </SectionCard>
-
-      {/* UV + Comfort duo */}
-      <div className="grid grid-cols-2 gap-2 animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-        <SectionCard className="!mb-0">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] font-medium mb-1">Indice UV</div>
-          <div className="text-2xl font-serif font-semibold leading-none">{weather.current.uvIndex}</div>
-          <div className="mt-1.5">
-            <Tag variant={weather.current.uvIndex > 6 ? "red" : weather.current.uvIndex > 3 ? "yellow" : "green"}>{uvInfo.label}</Tag>
-          </div>
-          <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">{uvInfo.signal}</div>
+          <Expandable label="Details avances">
+            <div className="grid grid-cols-3 gap-2">
+              <MiniStat
+                label="Visibilite"
+                value={weather.current.visibility >= 1000
+                  ? `${(weather.current.visibility / 1000).toFixed(1)} km`
+                  : `${weather.current.visibility} m`}
+                accent={weather.current.visibility < 2000}
+              />
+              <MiniStat label="Point de rosee" value={`${weather.current.dewPoint.toFixed(0)}°C`} sub={dpInfo.label} accent={weather.current.dewPoint >= 18} />
+              <MiniStat label="Altitude" value={`${Math.round(weather.elevation)}m`} sub={weather.elevation > 2500 ? "Haute alt." : weather.elevation > 1000 ? "Montagne" : "Plaine"} />
+            </div>
+            <div className="mt-2 px-3 py-2 rounded-lg bg-secondary/50">
+              <div className="text-[10px] text-muted-foreground leading-relaxed">{pressureInfo.narrative}</div>
+            </div>
+          </Expandable>
         </SectionCard>
-        <SectionCard className="!mb-0">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] font-medium mb-1">Confort humidite</div>
-          <div className="text-2xl font-serif font-semibold leading-none">{weather.current.dewPoint.toFixed(0)}<span className="text-sm font-normal text-muted-foreground ml-0.5">&deg;C</span></div>
-          <div className="mt-1.5">
-            <Tag variant={weather.current.dewPoint >= 21 ? "red" : weather.current.dewPoint >= 16 ? "yellow" : "green"}>{dpInfo.label}</Tag>
-          </div>
-          <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">{dpInfo.signal}</div>
-        </SectionCard>
-      </div>
+      </Expandable>
 
-      {/* Ephemerides */}
-      {todaySunrise && (
-        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "160ms" }}>
-          <SectionTitle>Ephemerides</SectionTitle>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-pastel-yellow-bg flex items-center justify-center">
-                <HugeiconsIcon icon={ArrowUp01Icon} size={15} className="text-pastel-yellow-text" />
+      {/* UV + Comfort duo - NIVEAU 2 expandable par défaut */}
+      <Expandable label="UV & Confort humidite" defaultOpen={false}>
+        <div className="grid grid-cols-2 gap-2 animate-fade-in-up" style={{ animationDelay: "120ms" }}>
+          <SectionCard className="!mb-0">
+            <div className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] font-medium mb-1">Indice UV</div>
+            <div className="text-2xl font-serif font-semibold leading-none">{weather.current.uvIndex}</div>
+            <div className="mt-1.5">
+              <Tag variant={weather.current.uvIndex > 6 ? "red" : weather.current.uvIndex > 3 ? "yellow" : "green"}>{uvInfo.label}</Tag>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">{uvInfo.signal}</div>
+          </SectionCard>
+          <SectionCard className="!mb-0">
+            <div className="text-[9px] text-muted-foreground uppercase tracking-[0.08em] font-medium mb-1">Confort humidite</div>
+            <div className="text-2xl font-serif font-semibold leading-none">{weather.current.dewPoint.toFixed(0)}<span className="text-sm font-normal text-muted-foreground ml-0.5">&deg;C</span></div>
+            <div className="mt-1.5">
+              <Tag variant={weather.current.dewPoint >= 21 ? "red" : weather.current.dewPoint >= 16 ? "yellow" : "green"}>{dpInfo.label}</Tag>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">{dpInfo.signal}</div>
+          </SectionCard>
+        </div>
+      </Expandable>
+
+      {/* Ephemerides - NIVEAU 2 expandable par défaut */}
+      <Expandable label="Ephemerides" defaultOpen={false}>
+        {todaySunrise && (
+          <SectionCard className="animate-fade-in-up" style={{ animationDelay: "160ms" }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-pastel-yellow-bg flex items-center justify-center">
+                  <HugeiconsIcon icon={ArrowUp01Icon} size={15} className="text-pastel-yellow-text" />
+                </div>
+                <div>
+                  <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Lever</div>
+                  <div className="text-sm font-mono font-semibold">
+                    {new Date(todaySunrise).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Lever</div>
-                <div className="text-sm font-mono font-semibold">
-                  {new Date(todaySunrise).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
+              <div className="text-center px-2">
+                {(() => {
+                  const rise = new Date(todaySunrise).getTime();
+                  const set = new Date(todaySunset).getTime();
+                  const h = Math.floor((set - rise) / 3600000);
+                  const m = Math.floor(((set - rise) % 3600000) / 60000);
+                  return (
+                    <>
+                      <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Duree</div>
+                      <div className="text-xs font-mono font-semibold">{h}h{m.toString().padStart(2, "0")}</div>
+                    </>
+                  );
+                })()}
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div>
+                  <div className="text-[9px] text-muted-foreground uppercase tracking-wide text-right">Coucher</div>
+                  <div className="text-sm font-mono font-semibold">
+                    {new Date(todaySunset).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-pastel-red-bg flex items-center justify-center">
+                  <HugeiconsIcon icon={ArrowDown01Icon} size={15} className="text-pastel-red-text" />
                 </div>
               </div>
             </div>
-            <div className="text-center px-2">
+            {/* Golden hour info */}
+            <Expandable label="Golden hour & crepuscule">
               {(() => {
-                const rise = new Date(todaySunrise).getTime();
-                const set = new Date(todaySunset).getTime();
-                const h = Math.floor((set - rise) / 3600000);
-                const m = Math.floor(((set - rise) % 3600000) / 60000);
+                const rise = new Date(todaySunrise);
+                const set = new Date(todaySunset);
+                const goldenAM = new Date(rise.getTime() + 40 * 60000);
+                const goldenPM = new Date(set.getTime() - 40 * 60000);
                 return (
-                  <>
-                    <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Duree</div>
-                    <div className="text-xs font-mono font-semibold">{h}h{m.toString().padStart(2, "0")}</div>
-                  </>
-                );
-              })()}
-            </div>
-            <div className="flex items-center gap-2.5">
-              <div>
-                <div className="text-[9px] text-muted-foreground uppercase tracking-wide text-right">Coucher</div>
-                <div className="text-sm font-mono font-semibold">
-                  {new Date(todaySunset).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
-                </div>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-pastel-red-bg flex items-center justify-center">
-                <HugeiconsIcon icon={ArrowDown01Icon} size={15} className="text-pastel-red-text" />
-              </div>
-            </div>
-          </div>
-          {/* Golden hour info */}
-          <Expandable label="Golden hour & crepuscule">
-            {(() => {
-              const rise = new Date(todaySunrise);
-              const set = new Date(todaySunset);
-              const goldenAM = new Date(rise.getTime() + 40 * 60000);
-              const goldenPM = new Date(set.getTime() - 40 * 60000);
-              return (
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl p-2.5 bg-pastel-yellow-bg/40">
-                    <div className="text-[9px] text-muted-foreground uppercase">Golden hour matin</div>
-                    <div className="text-xs font-mono font-semibold mt-1">
-                      {rise.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })} - {goldenAM.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl p-2.5 bg-pastel-yellow-bg/40">
+                      <div className="text-[9px] text-muted-foreground uppercase">Golden hour matin</div>
+                      <div className="text-xs font-mono font-semibold mt-1">
+                        {rise.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })} - {goldenAM.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    </div>
+                    <div className="rounded-xl p-2.5 bg-pastel-red-bg/30">
+                      <div className="text-[9px] text-muted-foreground uppercase">Golden hour soir</div>
+                      <div className="text-xs font-mono font-semibold mt-1">
+                        {goldenPM.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })} - {set.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
+                      </div>
                     </div>
                   </div>
-                  <div className="rounded-xl p-2.5 bg-pastel-red-bg/30">
-                    <div className="text-[9px] text-muted-foreground uppercase">Golden hour soir</div>
-                    <div className="text-xs font-mono font-semibold mt-1">
-                      {goldenPM.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })} - {set.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
-                    </div>
+                );
+              })()}
+            </Expandable>
+          </SectionCard>
+        )}
+      </Expandable>
+
+      {/* Hourly scroll - NIVEAU 3 expandable par défaut */}
+      <Expandable label="Prochaines heures" defaultOpen={false}>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+          <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-1 -mx-1">
+            {weather.hourly.slice(0, 12).map((h, i) => (
+              <div key={i} className="flex flex-col items-center gap-1 min-w-[56px] py-2 px-1 rounded-lg hover:bg-secondary/50 transition-colors">
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {new Date(h.time).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+                <span className="text-[15px] leading-none">{getWeatherSymbol(h.weatherCode)}</span>
+                <span className="text-xs font-semibold">{Math.round(h.temperature)}&deg;</span>
+                <span className="text-[9px] text-muted-foreground">{Math.round(h.feelsLike)}&deg;r</span>
+                {h.precipitationProb > 0 && (
+                  <span className="text-[8px] text-pastel-blue-text font-mono leading-none">{h.precipitationProb}%</span>
+                )}
+                {h.precipitation > 0 && (
+                  <span className="text-[8px] text-pastel-blue-text font-mono leading-none">{h.precipitation}mm</span>
+                )}
+                <span className="text-[8px] text-muted-foreground">{h.windSpeed}<span className="opacity-60">km/h</span></span>
+              </div>
+            ))}
+          </div>
+          {/* Rain window insight */}
+          {(() => {
+            const nextRain = weather.hourly.slice(0, 12).find(h => h.precipitationProb > 50);
+            const dryWindow = weather.hourly.slice(0, 12).filter(h => h.precipitationProb < 20).length;
+            if (nextRain) {
+              return (
+                <div className="mt-2 px-3 py-2 rounded-lg bg-pastel-blue-bg/40">
+                  <div className="text-[10px] text-pastel-blue-text font-medium">
+                    🌧 Pluie probable vers {new Date(nextRain.time).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })} ({nextRain.precipitationProb}%).
+                    {dryWindow > 0 && ` ${dryWindow}h de fenetre seche disponible.`}
                   </div>
                 </div>
               );
-            })()}
-          </Expandable>
+            }
+            return null;
+          })()}
         </SectionCard>
-      )}
+      </Expandable>
 
-      {/* Hourly scroll */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-        <SectionTitle>Prochaines heures</SectionTitle>
-        <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-1 -mx-1">
-          {weather.hourly.slice(0, 12).map((h, i) => (
-            <div key={i} className="flex flex-col items-center gap-1 min-w-[56px] py-2 px-1 rounded-lg hover:bg-secondary/50 transition-colors">
-              <span className="text-[10px] text-muted-foreground font-mono">
-                {new Date(h.time).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-              <span className="text-[15px] leading-none">{getWeatherSymbol(h.weatherCode)}</span>
-              <span className="text-xs font-semibold">{Math.round(h.temperature)}&deg;</span>
-              <span className="text-[9px] text-muted-foreground">{Math.round(h.feelsLike)}&deg;r</span>
-              {h.precipitationProb > 0 && (
-                <span className="text-[8px] text-pastel-blue-text font-mono leading-none">{h.precipitationProb}%</span>
-              )}
-              {h.precipitation > 0 && (
-                <span className="text-[8px] text-pastel-blue-text font-mono leading-none">{h.precipitation}mm</span>
-              )}
-              <span className="text-[8px] text-muted-foreground">{h.windSpeed}<span className="opacity-60">km/h</span></span>
-            </div>
-          ))}
-        </div>
-        {/* Rain window insight */}
-        {(() => {
-          const nextRain = weather.hourly.slice(0, 12).find(h => h.precipitationProb > 50);
-          const dryWindow = weather.hourly.slice(0, 12).filter(h => h.precipitationProb < 20).length;
-          if (nextRain) {
-            return (
-              <div className="mt-2 px-3 py-2 rounded-lg bg-pastel-blue-bg/40">
-                <div className="text-[10px] text-pastel-blue-text font-medium">
-                  🌧 Pluie probable vers {new Date(nextRain.time).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })} ({nextRain.precipitationProb}%).
-                  {dryWindow > 0 && ` ${dryWindow}h de fenetre seche disponible.`}
-                </div>
-              </div>
-            );
-          }
-          return null;
-        })()}
-      </SectionCard>
-
-      {/* 7-day */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>
-        <SectionTitle>Previsions 7 jours</SectionTitle>
+      {/* 7-day - NIVEAU 3 expandable par défaut */}
+      <Expandable label="Previsions 7 jours" defaultOpen={false}>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>
         {weather.daily.map((d, i) => {
           const allMin = Math.min(...weather.daily.map((x) => x.tempMin));
           const allMax = Math.max(...weather.daily.map((x) => x.tempMax));
@@ -674,8 +788,9 @@ function WeatherTab({ weather, narratives, airQuality }: { weather: WeatherData;
             </div>
           );
         })}
+        </SectionCard>
         {/* Weekly summary — progressive */}
-        <Expandable label="Resume de la semaine">
+        <Expandable label="Resume de la semaine" defaultOpen={false}>
           {(() => {
             const totalPrecip = weather.daily.reduce((s, d) => s + d.precipitationSum, 0);
             const totalPrecipHours = weather.daily.reduce((s, d) => s + d.precipitationHours, 0);
@@ -707,7 +822,7 @@ function WeatherTab({ weather, narratives, airQuality }: { weather: WeatherData;
             );
           })()}
         </Expandable>
-      </SectionCard>
+      </Expandable>
     </div>
   );
 }
@@ -719,6 +834,7 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
 
   const aqInfo = getAQILabel(airQuality.aqi);
   const healthProfiles = getAirHealthProfiles(airQuality.aqi, airQuality.pm25);
+  const behavioralInsight = generateBehavioralInsight(airQuality);
 
   const pollutants = [
     { key: "PM2.5", value: airQuality.pm25, unit: "\u00B5g/m\u00B3", desc: "Particules fines respirables", threshold: 25 },
@@ -768,6 +884,25 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
         )}
       </SectionCard>
 
+      {/* Behavioral Insight - NIVEAU 1 */}
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "20ms" }}>
+        <div className={`px-3 py-2.5 rounded-lg ${
+          behavioralInsight.severity === "danger" ? "bg-pastel-red-bg/50" :
+          behavioralInsight.severity === "bad" ? "bg-pastel-yellow-bg/50" :
+          behavioralInsight.severity === "moderate" ? "bg-pastel-yellow-bg/30" :
+          "bg-pastel-green-bg/40"
+        }`}>
+          <div className={`text-[11px] font-medium ${
+            behavioralInsight.severity === "danger" ? "text-pastel-red-text" :
+            behavioralInsight.severity === "bad" ? "text-pastel-yellow-text" :
+            behavioralInsight.severity === "moderate" ? "text-pastel-yellow-text" :
+            "text-pastel-green-text"
+          }`}>
+            {behavioralInsight.message}
+          </div>
+        </div>
+      </SectionCard>
+
       {/* Health profiles — progressive */}
       {healthProfiles.length > 0 && (
         <SectionCard className="animate-fade-in-up" style={{ animationDelay: "40ms" }}>
@@ -793,27 +928,11 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
         </SectionCard>
       )}
 
-      {/* Pollutants — show top 3, expand rest */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
-        <SectionTitle>Polluants</SectionTitle>
-        {pollutants.slice(0, 3).map((p) => {
-          const ratio = p.value / p.threshold;
-          const color = ratio > 0.7 ? "hsl(var(--pastel-red-text))" : ratio > 0.4 ? "hsl(var(--pastel-yellow-text))" : "hsl(var(--pastel-green-text))";
-          return (
-            <div key={p.key} className="py-2.5 border-b border-border last:border-b-0">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold">{p.key}</span>
-                  <span className="text-[9px] text-muted-foreground">{p.desc}</span>
-                </div>
-                <span className="text-[11px] font-mono font-medium">{p.value.toFixed(1)}</span>
-              </div>
-              <ProgressBar value={p.value} max={p.threshold} color={color} />
-            </div>
-          );
-        })}
-        <Expandable label={`${pollutants.length - 3} autres polluants`}>
-          {pollutants.slice(3).map((p) => {
+      {/* Pollutants - NIVEAU 3 expandable par défaut */}
+      <Expandable label="Polluants" defaultOpen={false}>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
+          <SectionTitle>Polluants</SectionTitle>
+          {pollutants.slice(0, 3).map((p) => {
             const ratio = p.value / p.threshold;
             const color = ratio > 0.7 ? "hsl(var(--pastel-red-text))" : ratio > 0.4 ? "hsl(var(--pastel-yellow-text))" : "hsl(var(--pastel-green-text))";
             return (
@@ -829,32 +948,52 @@ function AirTab({ airQuality }: { airQuality: AirQualityData | null }) {
               </div>
             );
           })}
-        </Expandable>
-      </SectionCard>
-
-      {/* Pollen */}
-      {hasPollenData && (
-        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <Tag variant="yellow">Pollens</Tag>
-            <span className="text-[10px] text-muted-foreground">Allergenes aeriens</span>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {pollenData.map((p) => {
-              const info = getPollenLevel(p.value);
+          <Expandable label={`${pollutants.length - 3} autres polluants`}>
+            {pollutants.slice(3).map((p) => {
+              const ratio = p.value / p.threshold;
+              const color = ratio > 0.7 ? "hsl(var(--pastel-red-text))" : ratio > 0.4 ? "hsl(var(--pastel-yellow-text))" : "hsl(var(--pastel-green-text))";
               return (
-                <div key={p.key} className={`rounded-xl p-2.5 ${p.value > 0 ? "bg-pastel-yellow-bg/40" : "bg-secondary/30"}`}>
-                  <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium">{p.key}</div>
-                  <div className="text-[13px] font-mono font-semibold mt-1">{p.value}</div>
-                  <Tag variant={info.color}>{info.label}</Tag>
+                <div key={p.key} className="py-2.5 border-b border-border last:border-b-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-semibold">{p.key}</span>
+                      <span className="text-[9px] text-muted-foreground">{p.desc}</span>
+                    </div>
+                    <span className="text-[11px] font-mono font-medium">{p.value.toFixed(1)}</span>
+                  </div>
+                  <ProgressBar value={p.value} max={p.threshold} color={color} />
                 </div>
               );
             })}
-          </div>
-          {pollenData.some(p => p.value >= 50) && (
-            <NarrativeBlock text="Concentration de pollens elevee. Allergiques : limitez le temps en exterieur, gardez les fenetres fermees, douchez-vous en rentrant." icon={Alert01Icon} />
-          )}
+          </Expandable>
         </SectionCard>
+      </Expandable>
+
+      {/* Pollen - NIVEAU 2 expandable par défaut */}
+      {hasPollenData && (
+        <Expandable label="Pollens" defaultOpen={false}>
+          <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Tag variant="yellow">Pollens</Tag>
+              <span className="text-[10px] text-muted-foreground">Allergenes aeriens</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {pollenData.map((p) => {
+                const info = getPollenLevel(p.value);
+                return (
+                  <div key={p.key} className={`rounded-xl p-2.5 ${p.value > 0 ? "bg-pastel-yellow-bg/40" : "bg-secondary/30"}`}>
+                    <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium">{p.key}</div>
+                    <div className="text-[13px] font-mono font-semibold mt-1">{p.value}</div>
+                    <Tag variant={info.color}>{info.label}</Tag>
+                  </div>
+                );
+              })}
+            </div>
+            {pollenData.some(p => p.value >= 50) && (
+              <NarrativeBlock text="Concentration de pollens elevee. Allergiques : limitez le temps en exterieur, gardez les fenetres fermees, douchez-vous en rentrant." icon={Alert01Icon} />
+            )}
+          </SectionCard>
+        </Expandable>
       )}
     </div>
   );
@@ -870,11 +1009,21 @@ function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
 }) {
   const totalAlerts = earthquakes.length + eonetEvents.length + reliefAlerts.length;
   const seismicRisk = analyzeSeismicRisk(earthquakes);
+  const globalState = computeGlobalAlertState(earthquakes, eonetEvents, reliefAlerts);
+  const timelineEvents = generateAlertTimeline(earthquakes, eonetEvents, reliefAlerts);
 
   if (totalAlerts === 0) {
     return (
       <div className="space-y-3">
+        {/* Global State - NIVEAU 1 */}
         <SectionCard className="animate-fade-in-up">
+          <div className={`px-3 py-2.5 rounded-lg bg-pastel-green-bg/40`}>
+            <div className={`text-[11px] font-medium text-pastel-green-text`}>
+              ✓ Zone calme
+            </div>
+          </div>
+        </SectionCard>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "20ms" }}>
           <div className="flex items-center gap-2 mb-3">
             <Tag variant="green">Zone calme</Tag>
           </div>
@@ -891,8 +1040,54 @@ function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
 
   return (
     <div className="space-y-3">
-      {/* Risk synthesis */}
+      {/* Global State - NIVEAU 1 */}
       <SectionCard className="animate-fade-in-up">
+        <div className={`px-3 py-2.5 rounded-lg ${
+          globalState.variant === "red" ? "bg-pastel-red-bg/50" :
+          globalState.variant === "yellow" ? "bg-pastel-yellow-bg/50" :
+          "bg-pastel-green-bg/40"
+        }`}>
+          <div className={`text-[11px] font-medium ${
+            globalState.variant === "red" ? "text-pastel-red-text" :
+            globalState.variant === "yellow" ? "text-pastel-yellow-text" :
+            "text-pastel-green-text"
+          }`}>
+            {globalState.variant === "red" && "⚠ "}{globalState.state} · {globalState.message}
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Timeline - NIVEAU 1 */}
+      {timelineEvents.length > 0 && (
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "20ms" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Tag variant="blue">Timeline</Tag>
+            <span className="text-[10px] text-muted-foreground">{timelineEvents.length} evenement{timelineEvents.length > 1 ? "s" : ""} recent{timelineEvents.length > 1 ? "s" : ""}</span>
+          </div>
+          <div className="space-y-2">
+            {timelineEvents.map((evt, i) => (
+              <div key={evt.id} className="flex items-start gap-2.5">
+                <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                  evt.variant === "red" ? "bg-pastel-red-text" :
+                  evt.variant === "purple" ? "bg-purple-500" :
+                  evt.variant === "blue" ? "bg-pastel-blue-text" :
+                  "bg-pastel-yellow-text"
+                }`} />
+                <div className="flex-1">
+                  <div className="text-[10px] text-muted-foreground font-mono">
+                    {new Date(evt.date).toLocaleDateString("fr", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                  <div className="text-[11px] font-medium">{evt.title}</div>
+                  <div className="text-[10px] text-muted-foreground">{evt.description}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
+
+      {/* Risk synthesis - NIVEAU 1 */}
+      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "40ms" }}>
         <div className="flex items-center gap-2 mb-3">
           <Tag variant="red">Synthese des risques</Tag>
           <span className="text-[10px] text-muted-foreground">{totalAlerts} evenement{totalAlerts > 1 ? "s" : ""}</span>
@@ -923,237 +1118,178 @@ function AlertsTab({ earthquakes, eonetEvents, reliefAlerts, location }: {
         )}
       </SectionCard>
 
-      {/* EONET Natural Events */}
+      {/* EONET Natural Events - NIVEAU 2 expandable par défaut */}
       {eonetEvents.length > 0 && (
-        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <Tag variant="purple">NASA EONET</Tag>
-            <span className="text-[10px] text-muted-foreground">Evenements naturels actifs</span>
-          </div>
-          {eonetEvents.slice(0, 3).map((evt) => {
-            const catInfo = getEONETCategoryInfo(evt.category);
-            return (
-              <div key={evt.id} className="py-3 border-b border-border last:border-b-0">
-                <div className="flex items-start gap-2.5">
-                  <Tag variant={catInfo.variant}>{catInfo.label}</Tag>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[11.5px] font-medium leading-tight">{evt.title}</div>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      {new Date(evt.date).toLocaleDateString("fr", { day: "numeric", month: "short", year: "numeric" })}
-                      {evt.magnitudeValue !== null && ` · ${evt.magnitudeValue} ${evt.magnitudeUnit}`}
+        <Expandable label="Evenements naturels (NASA EONET)" defaultOpen={false}>
+          <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Tag variant="purple">NASA EONET</Tag>
+              <span className="text-[10px] text-muted-foreground">Evenements naturels actifs</span>
+            </div>
+            {eonetEvents.slice(0, 3).map((evt) => {
+              const catInfo = getEONETCategoryInfo(evt.category);
+              return (
+                <div key={evt.id} className="py-3 border-b border-border last:border-b-0">
+                  <div className="flex items-start gap-2.5">
+                    <Tag variant={catInfo.variant}>{catInfo.label}</Tag>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11.5px] font-medium leading-tight">{evt.title}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">
+                        {new Date(evt.date).toLocaleDateString("fr", { day: "numeric", month: "short", year: "numeric" })}
+                        {evt.magnitudeValue !== null && ` · ${evt.magnitudeValue} ${evt.magnitudeUnit}`}
+                      </div>
                     </div>
                   </div>
+                  {evt.sourceUrl && (
+                    <a href={evt.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold text-foreground hover:opacity-60 transition-opacity">
+                      Source <HugeiconsIcon icon={ArrowRight01Icon} size={10} />
+                    </a>
+                  )}
                 </div>
-                {evt.sourceUrl && (
-                  <a href={evt.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold text-foreground hover:opacity-60 transition-opacity">
-                    Source <HugeiconsIcon icon={ArrowRight01Icon} size={10} />
-                  </a>
-                )}
-              </div>
-            );
-          })}
-          {eonetEvents.length > 3 && (
-            <Expandable label={`${eonetEvents.length - 3} evenements supplementaires`}>
-              {eonetEvents.slice(3).map((evt) => {
-                const catInfo = getEONETCategoryInfo(evt.category);
-                return (
-                  <div key={evt.id} className="py-2 border-b border-border last:border-b-0">
-                    <div className="flex items-center gap-2">
-                      <Tag variant={catInfo.variant}>{catInfo.label}</Tag>
-                      <span className="text-[11px] font-medium flex-1 truncate">{evt.title}</span>
+              );
+            })}
+            {eonetEvents.length > 3 && (
+              <Expandable label={`${eonetEvents.length - 3} evenements supplementaires`}>
+                {eonetEvents.slice(3).map((evt) => {
+                  const catInfo = getEONETCategoryInfo(evt.category);
+                  return (
+                    <div key={evt.id} className="py-2 border-b border-border last:border-b-0">
+                      <div className="flex items-center gap-2">
+                        <Tag variant={catInfo.variant}>{catInfo.label}</Tag>
+                        <span className="text-[11px] font-medium flex-1 truncate">{evt.title}</span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </Expandable>
-          )}
-        </SectionCard>
-      )}
-
-      {/* Earthquakes */}
-      {earthquakes.length > 0 && (
-        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <Tag variant="red">Sismique</Tag>
-            <span className="text-[10px] text-muted-foreground">USGS · Rayon 300km</span>
-          </div>
-          {earthquakes.slice(0, 5).map((eq, i) => (
-            <div key={i} className="flex items-start gap-2.5 py-2.5 border-b border-border last:border-b-0">
-              <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-lg mt-0.5 flex-shrink-0 ${
-                eq.magnitude >= 5 ? "bg-pastel-red-bg text-pastel-red-text" :
-                eq.magnitude >= 3 ? "bg-pastel-yellow-bg text-pastel-yellow-text" :
-                "bg-secondary text-muted-foreground"
-              }`}>
-                M{eq.magnitude.toFixed(1)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-medium leading-tight">{eq.place}</div>
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                  <span>Prof. {eq.depth.toFixed(0)}km</span>
-                  <span>{new Date(eq.time).toLocaleDateString("fr", { day: "numeric", month: "short" })}</span>
-                  {eq.tsunami && <Tag variant="red">Tsunami</Tag>}
-                  {eq.felt && <span>Ressenti {eq.felt}x</span>}
-                </div>
-              </div>
-            </div>
-          ))}
-          {earthquakes.length > 5 && (
-            <Expandable label={`${earthquakes.length - 5} seismes supplementaires`}>
-              {earthquakes.slice(5).map((eq, i) => (
-                <div key={i} className="flex items-center gap-2 py-2 border-b border-border last:border-b-0">
-                  <span className="text-[10px] font-mono font-semibold bg-secondary px-1.5 py-0.5 rounded">M{eq.magnitude.toFixed(1)}</span>
-                  <span className="text-[10px] text-muted-foreground truncate">{eq.place}</span>
-                </div>
-              ))}
-            </Expandable>
-          )}
-        </SectionCard>
-      )}
-
-      {/* ReliefWeb Alerts */}
-      {reliefAlerts.length > 0 && (
-        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <Tag variant="yellow">ReliefWeb</Tag>
-            <span className="text-[10px] text-muted-foreground">Catastrophes et alertes</span>
-          </div>
-          {reliefAlerts.slice(0, 3).map((alert) => (
-            <div key={alert.id} className="py-2.5 border-b border-border last:border-b-0">
-              <div className="text-[11.5px] font-medium leading-tight">{alert.title}</div>
-              <div className="flex items-center gap-2 mt-1">
-                {alert.type && <span className="text-[9px] px-1.5 py-[1px] rounded bg-pastel-yellow-bg text-pastel-yellow-text uppercase tracking-wide font-medium">{alert.type}</span>}
-                {alert.date && <span className="text-[10px] text-muted-foreground">{new Date(alert.date).toLocaleDateString("fr", { day: "numeric", month: "short", year: "numeric" })}</span>}
-              </div>
-              <a href={alert.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-semibold text-foreground hover:opacity-60 transition-opacity">
-                Details <HugeiconsIcon icon={ArrowRight01Icon} size={10} />
-              </a>
-            </div>
-          ))}
-          {reliefAlerts.length > 3 && (
-            <Expandable label={`${reliefAlerts.length - 3} alertes supplementaires`}>
-              {reliefAlerts.slice(3).map((alert) => (
-                <div key={alert.id} className="py-2 border-b border-border last:border-b-0">
-                  <div className="text-[11px] font-medium truncate">{alert.title}</div>
-                </div>
-              ))}
-            </Expandable>
-          )}
-        </SectionCard>
-      )}
-    </div>
-  );
-}
-
-// ====== CULTURE TAB ======
-
-function CultureTab({ country, location }: { country: CountryData | null; location: GeoResult }) {
-  if (!country) return <EmptyState text="Donnees culturelles indisponibles pour cette position." />;
-
-  const langText = country.languages.join(", ");
-  const currText = country.currencies.map((c) => `${c.name} (${c.symbol})`).join(", ");
-  const density = Math.round(country.population / country.area);
-
-  return (
-    <div className="space-y-3">
-      {/* Travel brief — key info first */}
-      <SectionCard className="animate-fade-in-up">
-        <div className="flex items-center gap-2 mb-3">
-          <Tag variant="purple">Essentiel voyageur</Tag>
-        </div>
-        <NarrativeBlock text={`Parlez ${langText}. Prevoyez vos ${currText}.`} icon={Globe02Icon} />
-        {country.callingCode && (
-          <NarrativeBlock text={`Indicatif telephonique : ${country.callingCode}. Fuseaux : ${country.timezones.slice(0, 3).join(", ")}${country.timezones.length > 3 ? "..." : ""}.`} icon={Clock01Icon} />
-        )}
-        {country.carSide && (
-          <NarrativeBlock text={`On roule a ${country.carSide === "right" ? "droite" : "gauche"}. Debut de semaine : ${country.startOfWeek === "monday" ? "lundi" : country.startOfWeek === "sunday" ? "dimanche" : country.startOfWeek}.`} icon={InformationCircleIcon} />
-        )}
-        {/* Quick facts grid */}
-        <div className="grid grid-cols-3 gap-2 mt-3">
-          <div className="rounded-xl p-2.5 bg-secondary/40 text-center">
-            <div className="text-lg">{country.flagEmoji}</div>
-            <div className="text-[9px] text-muted-foreground uppercase mt-0.5">{country.name}</div>
-          </div>
-          <div className="rounded-xl p-2.5 bg-secondary/40 text-center">
-            <div className="text-sm font-serif font-semibold">{density}</div>
-            <div className="text-[9px] text-muted-foreground uppercase mt-0.5">hab/km²</div>
-          </div>
-          <div className="rounded-xl p-2.5 bg-secondary/40 text-center">
-            <div className="text-sm font-serif font-semibold">{country.borders.length}</div>
-            <div className="text-[9px] text-muted-foreground uppercase mt-0.5">frontieres</div>
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Country card — progressive */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
-        <div className="flex items-center gap-3 mb-4">
-          {country.flag && (
-            <img src={country.flag} alt={`Drapeau ${country.name}`} className="w-14 h-10 object-cover rounded-lg border border-border" loading="lazy" />
-          )}
-          <div className="flex-1">
-            <div className="text-sm font-serif font-semibold leading-tight">{country.name}</div>
-            <div className="text-[10px] text-muted-foreground">{country.officialName}</div>
-          </div>
-          {country.coatOfArms && (
-            <img src={country.coatOfArms} alt="Armoiries" className="w-10 h-10 object-contain" loading="lazy" />
-          )}
-        </div>
-        <DataRow label="Capitale" value={country.capital} />
-        <DataRow label="Continent" value={country.continents.join(", ")} />
-        <DataRow label="Region" value={`${country.subregion}, ${country.region}`} />
-        <DataRow label="Population" value={country.population.toLocaleString("fr")} mono />
-        <Expandable label="Donnees detaillees">
-          <DataRow label="Superficie" value={`${country.area.toLocaleString("fr")} km\u00B2`} mono />
-          <DataRow label="Langues" value={langText} />
-          <DataRow label="Monnaie" value={currText} />
-          {country.borders.length > 0 && (
-            <DataRow label="Frontieres" value={`${country.borders.length} pays (${country.borders.slice(0, 5).join(", ")}${country.borders.length > 5 ? "..." : ""})`} />
-          )}
-          {country.gini !== undefined && (
-            <DataRow label="Indice Gini" value={country.gini.toFixed(1)} mono />
-          )}
+                  );
+                })}
+              </Expandable>
+            )}
+          </SectionCard>
         </Expandable>
-      </SectionCard>
+      )}
 
-      {/* Density + Gini insight */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-        <SectionTitle>Indicateurs</SectionTitle>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl p-3 bg-secondary/40">
-            <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Densite</div>
-            <div className="text-lg font-serif font-semibold mt-1">{density} <span className="text-[10px] font-normal text-muted-foreground">hab/km\u00B2</span></div>
-          </div>
-          {country.gini !== undefined && (
-            <div className="rounded-xl p-3 bg-secondary/40">
-              <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Inegalite (Gini)</div>
-              <div className="text-lg font-serif font-semibold mt-1">{country.gini.toFixed(1)}</div>
-              <ProgressBar value={country.gini} max={100} color={country.gini > 45 ? "hsl(var(--pastel-red-text))" : country.gini > 35 ? "hsl(var(--pastel-yellow-text))" : "hsl(var(--pastel-green-text))"} />
+      {/* Earthquakes - NIVEAU 2 expandable par défaut */}
+      {earthquakes.length > 0 && (
+        <Expandable label="Sismique (USGS)" defaultOpen={false}>
+          <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Tag variant="red">Sismique</Tag>
+              <span className="text-[10px] text-muted-foreground">USGS · Rayon 300km</span>
             </div>
-          )}
-        </div>
-        <div className="mt-3 px-3 py-2.5 rounded-lg bg-secondary/50">
-          <div className="text-[10px] text-muted-foreground leading-relaxed">
-            {density > 200
-              ? "Zone a forte densite. Affluence probable dans les transports et lieux publics. Reservez a l'avance."
-              : density > 50
-              ? "Densite moderee. Equilibre entre espaces urbains et naturels."
-              : "Faible densite. Grands espaces et tranquillite. Verifiez les distances entre les services."}
-          </div>
-        </div>
-      </SectionCard>
+            {earthquakes.slice(0, 5).map((eq, i) => (
+              <div key={i} className="flex items-start gap-2.5 py-2.5 border-b border-border last:border-b-0">
+                <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-lg mt-0.5 flex-shrink-0 ${
+                  eq.magnitude >= 5 ? "bg-pastel-red-bg text-pastel-red-text" :
+                  eq.magnitude >= 3 ? "bg-pastel-yellow-bg text-pastel-yellow-text" :
+                  "bg-secondary text-muted-foreground"
+                }`}>
+                  M{eq.magnitude.toFixed(1)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-medium leading-tight">{eq.place}</div>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                    <span>Prof. {eq.depth.toFixed(0)}km</span>
+                    <span>{new Date(eq.time).toLocaleDateString("fr", { day: "numeric", month: "short" })}</span>
+                    {eq.tsunami && <Tag variant="red">Tsunami</Tag>}
+                    {eq.felt && <span>Ressenti {eq.felt}x</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {earthquakes.length > 5 && (
+              <Expandable label={`${earthquakes.length - 5} seismes supplementaires`}>
+                {earthquakes.slice(5).map((eq, i) => (
+                  <div key={i} className="flex items-center gap-2 py-2 border-b border-border last:border-b-0">
+                    <span className="text-[10px] font-mono font-semibold bg-secondary px-1.5 py-0.5 rounded">M{eq.magnitude.toFixed(1)}</span>
+                    <span className="text-[10px] text-muted-foreground truncate">{eq.place}</span>
+                  </div>
+                ))}
+              </Expandable>
+            )}
+          </SectionCard>
+        </Expandable>
+      )}
+
+      {/* ReliefWeb Alerts - NIVEAU 2 expandable par défaut */}
+      {reliefAlerts.length > 0 && (
+        <Expandable label="Alertes humanitaires (ReliefWeb)" defaultOpen={false}>
+          <SectionCard className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Tag variant="yellow">ReliefWeb</Tag>
+              <span className="text-[10px] text-muted-foreground">Catastrophes et alertes</span>
+            </div>
+            {reliefAlerts.slice(0, 3).map((alert) => (
+              <div key={alert.id} className="py-2.5 border-b border-border last:border-b-0">
+                <div className="text-[11.5px] font-medium leading-tight">{alert.title}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  {alert.type && <span className="text-[9px] px-1.5 py-[1px] rounded bg-pastel-yellow-bg text-pastel-yellow-text uppercase tracking-wide font-medium">{alert.type}</span>}
+                  {alert.date && <span className="text-[10px] text-muted-foreground">{new Date(alert.date).toLocaleDateString("fr", { day: "numeric", month: "short", year: "numeric" })}</span>}
+                </div>
+                <a href={alert.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-semibold text-foreground hover:opacity-60 transition-opacity">
+                  Details <HugeiconsIcon icon={ArrowRight01Icon} size={10} />
+                </a>
+              </div>
+            ))}
+            {reliefAlerts.length > 3 && (
+              <Expandable label={`${reliefAlerts.length - 3} alertes supplementaires`}>
+                {reliefAlerts.slice(3).map((alert) => (
+                  <div key={alert.id} className="py-2 border-b border-border last:border-b-0">
+                    <div className="text-[11px] font-medium truncate">{alert.title}</div>
+                  </div>
+                ))}
+              </Expandable>
+            )}
+          </SectionCard>
+        </Expandable>
+      )}
     </div>
   );
 }
 
-// ====== WIKI TAB ======
+// ====== SAVOIR TAB ======
 
-function WikiTab({ wiki, wikiImages, location }: { wiki: WikiData | null; wikiImages: WikimediaImage[]; location: GeoResult }) {
-  if (!wiki && wikiImages.length === 0) return <EmptyState text="Aucun article encyclopedique trouve pour ce lieu." />;
+function SavoirTab({ country, wiki, wikiImages, location }: { country: CountryData | null; wiki: WikiData | null; wikiImages: WikimediaImage[]; location: GeoResult }) {
+  if (!country && !wiki && wikiImages.length === 0) return <EmptyState text="Aucune donnee encyclopedique ou culturelle trouvee." />;
+
+  const langText = country?.languages.join(", ") || "";
+  const currText = country?.currencies.map((c) => `${c.name} (${c.symbol})`).join(", ") || "";
+  const density = country ? Math.round(country.population / country.area) : 0;
 
   return (
     <div className="space-y-3">
-      {wiki && (
+      {/* 1. Travel brief */}
+      {country && (
         <SectionCard className="animate-fade-in-up">
+          <div className="flex items-center gap-2 mb-3">
+            <Tag variant="purple">Essentiel voyageur</Tag>
+          </div>
+          <NarrativeBlock text={`Parlez ${langText}. Prevoyez vos ${currText}.`} icon={Globe02Icon} />
+          {country.callingCode && (
+            <NarrativeBlock text={`Indicatif telephonique : ${country.callingCode}. Fuseaux : ${country.timezones.slice(0, 3).join(", ")}${country.timezones.length > 3 ? "..." : ""}.`} icon={Clock01Icon} />
+          )}
+          {country.carSide && (
+            <NarrativeBlock text={`On roule a ${country.carSide === "right" ? "droite" : "gauche"}. Debut de semaine : ${country.startOfWeek === "monday" ? "lundi" : country.startOfWeek === "sunday" ? "dimanche" : country.startOfWeek}.`} icon={InformationCircleIcon} />
+          )}
+          {/* Quick facts grid */}
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            <div className="rounded-xl p-2.5 bg-secondary/40 text-center">
+              <div className="text-lg">{country.flagEmoji}</div>
+              <div className="text-[9px] text-muted-foreground uppercase mt-0.5">{country.name}</div>
+            </div>
+            <div className="rounded-xl p-2.5 bg-secondary/40 text-center">
+              <div className="text-sm font-serif font-semibold">{density}</div>
+              <div className="text-[9px] text-muted-foreground uppercase mt-0.5">hab/km²</div>
+            </div>
+            <div className="rounded-xl p-2.5 bg-secondary/40 text-center">
+              <div className="text-sm font-serif font-semibold">{country.borders.length}</div>
+              <div className="text-[9px] text-muted-foreground uppercase mt-0.5">frontieres</div>
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* 2. Wiki Extract */}
+      {wiki && (
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "40ms" }}>
           {wiki.thumbnail && (
             <div className="-mx-4 -mt-4 mb-4">
               <img src={wiki.thumbnail} alt={wiki.title} className="w-full h-48 object-cover rounded-t-xl" loading="lazy" />
@@ -1184,65 +1320,124 @@ function WikiTab({ wiki, wikiImages, location }: { wiki: WikiData | null; wikiIm
         </SectionCard>
       )}
 
-      {/* Wikimedia Commons gallery */}
+      {/* Wikimedia Images - NIVEAU 3 expandable */}
       {wikiImages.length > 0 && (
-        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <Tag variant="blue">Wikimedia</Tag>
-            <span className="text-[10px] text-muted-foreground">{wikiImages.length} photos geolocalisees</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {wikiImages.slice(0, 4).map((img, i) => (
-              <a key={i} href={img.descriptionUrl || img.url} target="_blank" rel="noopener noreferrer" className="group relative overflow-hidden rounded-lg aspect-[4/3]">
-                <img
-                  src={img.thumbUrl}
-                  alt={img.title}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-foreground/60 to-transparent p-2 pt-6">
-                  <span className="text-[9px] text-primary-foreground leading-tight line-clamp-2">{img.title}</span>
+        <Expandable label="Photos geolocalisees (Wikimedia)" defaultOpen={false}>
+          <SectionCard className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Tag variant="blue">Wikimedia</Tag>
+              <span className="text-[10px] text-muted-foreground">{wikiImages.length} photos geolocalisees</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {wikiImages.slice(0, 4).map((img, i) => (
+                <a key={i} href={img.descriptionUrl || img.url} target="_blank" rel="noopener noreferrer" className="group relative overflow-hidden rounded-lg aspect-[4/3]">
+                  <img src={img.thumbUrl} alt={img.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-foreground/60 to-transparent p-2 pt-6">
+                    <span className="text-[9px] text-primary-foreground leading-tight line-clamp-2">{img.title}</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+            {wikiImages.length > 4 && (
+              <Expandable label={`${wikiImages.length - 4} photos supplementaires`}>
+                <div className="grid grid-cols-2 gap-2">
+                  {wikiImages.slice(4).map((img, i) => (
+                    <a key={i} href={img.descriptionUrl || img.url} target="_blank" rel="noopener noreferrer" className="group relative overflow-hidden rounded-lg aspect-[4/3]">
+                      <img src={img.thumbUrl} alt={img.title} className="w-full h-full object-cover" loading="lazy" />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-foreground/60 to-transparent p-2 pt-6">
+                        <span className="text-[9px] text-primary-foreground leading-tight line-clamp-2">{img.title}</span>
+                      </div>
+                    </a>
+                  ))}
                 </div>
-              </a>
-            ))}
-          </div>
-          {wikiImages.length > 4 && (
-            <Expandable label={`${wikiImages.length - 4} photos supplementaires`}>
-              <div className="grid grid-cols-2 gap-2">
-                {wikiImages.slice(4).map((img, i) => (
-                  <a key={i} href={img.descriptionUrl || img.url} target="_blank" rel="noopener noreferrer" className="group relative overflow-hidden rounded-lg aspect-[4/3]">
-                    <img src={img.thumbUrl} alt={img.title} className="w-full h-full object-cover" loading="lazy" />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-foreground/60 to-transparent p-2 pt-6">
-                      <span className="text-[9px] text-primary-foreground leading-tight line-clamp-2">{img.title}</span>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </Expandable>
-          )}
-        </SectionCard>
+              </Expandable>
+            )}
+          </SectionCard>
+        </Expandable>
       )}
 
-      {/* Geographic context */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-        <SectionTitle>Contexte geographique</SectionTitle>
-        <DataRow label="Latitude" value={location.lat.toFixed(6)} mono />
-        <DataRow label="Longitude" value={location.lon.toFixed(6)} mono />
-        <DataRow label="Hemisphere" value={location.lat >= 0 ? "Nord" : "Sud"} />
-        <div className="mt-3 px-3 py-2.5 rounded-lg bg-secondary/50">
-          <div className="text-[10px] text-muted-foreground leading-relaxed">
-            {Math.abs(location.lat) > 66.5
-              ? "Zone polaire. Nuit polaire en hiver, soleil de minuit en ete. Temperatures extremes."
-              : Math.abs(location.lat) > 60
-              ? "Zone subarctique. Hivers longs et rigoureux, etes brefs."
-              : Math.abs(location.lat) > 35
-              ? "Zone temperee. Quatre saisons distinctes avec des transitions marquees."
-              : Math.abs(location.lat) > 23.5
-              ? "Zone subtropicale. Climat chaud avec des saisons humides et seches alternees."
-              : "Zone tropicale. Chaleur constante et humidite elevee toute l'annee."}
+      {/* Indicators and Geography - NIVEAU 2 expandable par défaut */}
+      <Expandable label="Indicateurs & Geographie" defaultOpen={false}>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "160ms" }}>
+          <SectionTitle>Indicateurs & Geographie</SectionTitle>
+          {country && (
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="rounded-xl p-3 bg-secondary/40">
+                <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Densite</div>
+                <div className="text-lg font-serif font-semibold mt-1">{density} <span className="text-[10px] font-normal text-muted-foreground">hab/km\u00B2</span></div>
+              </div>
+              {country.gini !== undefined && (
+                <div className="rounded-xl p-3 bg-secondary/40">
+                  <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Inegalite (Gini)</div>
+                  <div className="text-lg font-serif font-semibold mt-1">{country.gini.toFixed(1)}</div>
+                  <ProgressBar value={country.gini} max={100} color={country.gini > 45 ? "hsl(var(--pastel-red-text))" : country.gini > 35 ? "hsl(var(--pastel-yellow-text))" : "hsl(var(--pastel-green-text))"} />
+                </div>
+              )}
+            </div>
+          )}
+          <div className={country ? "border-t border-border pt-3" : ""}>
+            <DataRow label="Latitude" value={location.lat.toFixed(6)} mono />
+            <DataRow label="Longitude" value={location.lon.toFixed(6)} mono />
+            <DataRow label="Hemisphere" value={location.lat >= 0 ? "Nord" : "Sud"} />
           </div>
-        </div>
-      </SectionCard>
+          <div className="mt-3 px-3 py-2.5 rounded-lg bg-secondary/50">
+            <div className="text-[10px] text-muted-foreground leading-relaxed space-y-1.5">
+              {country && (
+                <div>
+                  {density > 200
+                    ? "Zone a forte densite. Affluence probable dans les transports et lieux publics. Reservez a l'avance."
+                    : density > 50
+                    ? "Densite moderee. Equilibre entre espaces urbains et naturels."
+                    : "Faible densite. Grands espaces et tranquillite. Verifiez les distances entre les services."}
+                </div>
+              )}
+              <div>
+                {Math.abs(location.lat) > 66.5
+                  ? "Zone polaire. Nuit polaire en hiver, soleil de minuit en ete. Temperatures extremes."
+                  : Math.abs(location.lat) > 60
+                  ? "Zone subarctique. Hivers longs et rigoureux, etes brefs."
+                  : Math.abs(location.lat) > 35
+                  ? "Zone temperee. Quatre saisons distinctes avec des transitions marquees."
+                  : Math.abs(location.lat) > 23.5
+                  ? "Zone subtropicale. Climat chaud avec des saisons humides et seches alternees."
+                  : "Zone tropicale. Chaleur constante et humidite elevee toute l'annee."}
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+      </Expandable>
+
+      {/* Country Facts - NIVEAU 3 expandable */}
+      {country && (
+        <Expandable label="Donnees du pays" defaultOpen={false}>
+          <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
+            <div className="flex items-center gap-3 mb-4">
+              {country.flag && (
+                <img src={country.flag} alt={`Drapeau ${country.name}`} className="w-14 h-10 object-cover rounded-lg border border-border" loading="lazy" />
+              )}
+              <div className="flex-1">
+                <div className="text-sm font-serif font-semibold leading-tight">{country.name}</div>
+                <div className="text-[10px] text-muted-foreground">{country.officialName}</div>
+              </div>
+              {country.coatOfArms && (
+                <img src={country.coatOfArms} alt="Armoiries" className="w-10 h-10 object-contain" loading="lazy" />
+              )}
+            </div>
+            <DataRow label="Capitale" value={country.capital} />
+            <DataRow label="Continent" value={country.continents.join(", ")} />
+            <DataRow label="Region" value={`${country.subregion}, ${country.region}`} />
+            <DataRow label="Population" value={country.population.toLocaleString("fr")} mono />
+            <Expandable label="Donnees detaillees">
+              <DataRow label="Superficie" value={`${country.area.toLocaleString("fr")} km\u00B2`} mono />
+              <DataRow label="Langues" value={langText} />
+              <DataRow label="Monnaie" value={currText} />
+              {country.borders.length > 0 && (
+                <DataRow label="Frontieres" value={`${country.borders.length} pays (${country.borders.slice(0, 5).join(", ")}${country.borders.length > 5 ? "..." : ""})`} />
+              )}
+            </Expandable>
+          </SectionCard>
+        </Expandable>
+      )}
     </div>
   );
 }
@@ -1284,9 +1479,21 @@ function NearbyTab({ pois, location }: { pois: OverpassPOI[]; location: GeoResul
     return Object.entries(groups).filter(([, v]) => v.length > 0);
   }, [pois]);
 
+  const essentialServices = useMemo(() => {
+    const essentials: Record<string, OverpassPOI[]> = {
+      "Sante": [], "Urgence": [], "Transport": [],
+    };
+    pois.forEach(p => {
+      if (["hospital", "pharmacy", "doctors", "dentist", "veterinary"].includes(p.type)) essentials["Sante"].push(p);
+      else if (["police", "fire_station", "defibrillator", "phone"].includes(p.type)) essentials["Urgence"].push(p);
+      else if (["stop_position", "station"].includes(p.type)) essentials["Transport"].push(p);
+    });
+    return Object.entries(essentials).filter(([, v]) => v.length > 0);
+  }, [pois]);
+
   return (
     <div className="space-y-3">
-      {/* Walkability insight */}
+      {/* Walkability insight - NIVEAU 1 */}
       <SectionCard className="animate-fade-in-up">
         <div className="flex items-center gap-2 mb-2">
           <Tag variant={walkability.score === "Excellent" || walkability.score === "Bon" ? "green" : "yellow"}>
@@ -1304,58 +1511,138 @@ function NearbyTab({ pois, location }: { pois: OverpassPOI[]; location: GeoResul
         )}
       </SectionCard>
 
-      {/* Grouped POIs — show first 3 per group, expand rest */}
-      {grouped.length > 0 ? (
-        grouped.map(([groupName, groupPois], gi) => (
-          <SectionCard key={groupName} className="animate-fade-in-up" style={{ animationDelay: `${(gi + 1) * 40}ms` }}>
-            <SectionTitle sub={`${groupPois.length} lieu${groupPois.length > 1 ? "x" : ""}`}>{groupName}</SectionTitle>
-            {groupPois.slice(0, 3).map((poi) => (
-              <div key={poi.id} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[11.5px] font-medium truncate">{poi.name}</div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[9px] px-1.5 py-[1px] rounded bg-secondary text-muted-foreground uppercase tracking-wide font-medium">
-                      {POI_LABELS[poi.type] || poi.type}
-                    </span>
-                    {poi.distance !== undefined && (
-                      <span className="text-[10px] text-muted-foreground font-mono">{poi.distance}m</span>
-                    )}
-                  </div>
+      {/* Essential Services - NIVEAU 1 */}
+      {essentialServices.length > 0 && (
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "20ms" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Tag variant="red">Services essentiels</Tag>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {essentialServices.map(([category, categoryPois]) => (
+              <div key={category} className="rounded-xl p-3 bg-secondary/40">
+                <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium mb-1">{category}</div>
+                <div className="text-lg font-serif font-semibold mb-1">{categoryPois.length}</div>
+                <div className="text-[9px] text-muted-foreground leading-tight">
+                  {categoryPois.slice(0, 2).map(p => p.name).join(", ")}
+                  {categoryPois.length > 2 && "..."}
                 </div>
-                <button
-                  onClick={() => window.open(`geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})`, "_blank")}
-                  className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 ml-2"
-                >
-                  <HugeiconsIcon icon={Navigation01Icon} size={13} />
-                </button>
               </div>
             ))}
-            {groupPois.length > 3 && (
-              <Expandable label={`${groupPois.length - 3} lieux supplementaires`}>
-                {groupPois.slice(3).map((poi) => (
-                  <div key={poi.id} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-medium truncate">{poi.name}</div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[9px] text-muted-foreground">{POI_LABELS[poi.type] || poi.type}</span>
-                        {poi.distance !== undefined && (
-                          <span className="text-[9px] text-muted-foreground font-mono">{poi.distance}m</span>
-                        )}
-                      </div>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* Daily Services - NIVEAU 2 expandable par défaut */}
+      {(grouped.some(([name]) => name === "Restauration") || grouped.some(([name]) => name === "Commerces")) && (
+        <Expandable label="Services quotidiens" defaultOpen={false}>
+          {grouped.filter(([name]) => name === "Restauration" || name === "Commerces").map(([groupName, groupPois], gi) => (
+            <SectionCard key={groupName} className="animate-fade-in-up" style={{ animationDelay: `${(gi + 1) * 40}ms` }}>
+              <SectionTitle sub={`${groupPois.length} lieu${groupPois.length > 1 ? "x" : ""}`}>{groupName}</SectionTitle>
+              {groupPois.slice(0, 3).map((poi) => (
+                <div key={poi.id} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11.5px] font-medium truncate">{poi.name}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[9px] px-1.5 py-[1px] rounded bg-secondary text-muted-foreground uppercase tracking-wide font-medium">
+                        {POI_LABELS[poi.type] || poi.type}
+                      </span>
+                      {poi.distance !== undefined && (
+                        <span className="text-[10px] text-muted-foreground font-mono">{poi.distance}m</span>
+                      )}
                     </div>
-                    <button
-                      onClick={() => window.open(`geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})`, "_blank")}
-                      className="w-6 h-6 rounded bg-secondary flex items-center justify-center text-muted-foreground flex-shrink-0 ml-2"
-                    >
-                      <HugeiconsIcon icon={Navigation01Icon} size={11} />
-                    </button>
                   </div>
-                ))}
-              </Expandable>
-            )}
-          </SectionCard>
+                  <button
+                    onClick={() => window.open(`geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})", "_blank")}
+                    className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 ml-2"
+                  >
+                    <HugeiconsIcon icon={Navigation01Icon} size={13} />
+                  </button>
+                </div>
+              ))}
+              {groupPois.length > 3 && (
+                <Expandable label={`${groupPois.length - 3} lieux supplementaires`}>
+                  {groupPois.slice(3).map((poi) => (
+                    <div key={poi.id} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-medium truncate">{poi.name}</div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[9px] text-muted-foreground">{POI_LABELS[poi.type] || poi.type}</span>
+                          {poi.distance !== undefined && (
+                            <span className="text-[9px] text-muted-foreground font-mono">{poi.distance}m</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => window.open(`geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})`, "_blank")}
+                        className="w-6 h-6 rounded bg-secondary flex items-center justify-center text-muted-foreground flex-shrink-0 ml-2"
+                      >
+                        <HugeiconsIcon icon={Navigation01Icon} size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </Expandable>
+              )}
+            </SectionCard>
+          ))}
+        </Expandable>
+      )}
+
+      {/* Other Categories - NIVEAU 3 expandable */}
+      {grouped.filter(([name]) => name === "Culture / Loisirs" || name === "Nature" || name === "Autre").length > 0 && (
+        grouped.filter(([name]) => name === "Culture / Loisirs" || name === "Nature" || name === "Autre").map(([groupName, groupPois], gi) => (
+          <Expandable key={groupName} label={groupName} defaultOpen={false}>
+            <SectionCard className="animate-fade-in-up" style={{ animationDelay: `${(gi + 1) * 40}ms` }}>
+              <SectionTitle sub={`${groupPois.length} lieu${groupPois.length > 1 ? "x" : ""}`}>{groupName}</SectionTitle>
+              {groupPois.slice(0, 3).map((poi) => (
+                <div key={poi.id} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11.5px] font-medium truncate">{poi.name}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[9px] px-1.5 py-[1px] rounded bg-secondary text-muted-foreground uppercase tracking-wide font-medium">
+                        {POI_LABELS[poi.type] || poi.type}
+                      </span>
+                      {poi.distance !== undefined && (
+                        <span className="text-[10px] text-muted-foreground font-mono">{poi.distance}m</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => window.open(`geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})`, "_blank")}
+                    className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 ml-2"
+                  >
+                    <HugeiconsIcon icon={Navigation01Icon} size={13} />
+                  </button>
+                </div>
+              ))}
+              {groupPois.length > 3 && (
+                <Expandable label={`${groupPois.length - 3} lieux supplementaires`}>
+                  {groupPois.slice(3).map((poi) => (
+                    <div key={poi.id} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-medium truncate">{poi.name}</div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[9px] text-muted-foreground">{POI_LABELS[poi.type] || poi.type}</span>
+                          {poi.distance !== undefined && (
+                            <span className="text-[9px] text-muted-foreground font-mono">{poi.distance}m</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => window.open(`geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})`, "_blank")}
+                        className="w-6 h-6 rounded bg-secondary flex items-center justify-center text-muted-foreground flex-shrink-0 ml-2"
+                      >
+                        <HugeiconsIcon icon={Navigation01Icon} size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </Expandable>
+              )}
+            </SectionCard>
+          </Expandable>
         ))
-      ) : (
+      )}
+
+      {grouped.length === 0 && (
         <EmptyState text="Aucun service detecte dans un rayon de 800m." />
       )}
     </div>
@@ -1406,68 +1693,72 @@ function NatureTab({ species, location }: { species: GBIFSpecies[]; location: Ge
         </div>
       </SectionCard>
 
-      {/* Families */}
+      {/* Families - NIVEAU 2 expandable par défaut */}
       {families.length > 0 && (
-        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
-          <SectionTitle>Familles dominantes</SectionTitle>
-          <div className="grid grid-cols-3 gap-2">
-            {families.map(([f, count]) => (
-              <div key={f} className="rounded-xl p-2.5 bg-pastel-green-bg/30">
-                <div className="text-[10px] font-medium truncate">{f}</div>
-                <div className="text-[13px] font-mono font-semibold mt-1">{count}</div>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+        <Expandable label="Familles dominantes" defaultOpen={false}>
+          <SectionCard className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
+            <SectionTitle>Familles dominantes</SectionTitle>
+            <div className="grid grid-cols-3 gap-2">
+              {families.map(([f, count]) => (
+                <div key={f} className="rounded-xl p-2.5 bg-pastel-green-bg/30">
+                  <div className="text-[10px] font-medium truncate">{f}</div>
+                  <div className="text-[13px] font-mono font-semibold mt-1">{count}</div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        </Expandable>
       )}
 
-      {/* Species list — show first 5, expand rest */}
-      <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-        <SectionTitle sub={`${species.length} especes`}>Especes observees</SectionTitle>
-        {species.slice(0, 5).map((sp, i) => (
-          <div key={i} className="flex items-start gap-3 py-2.5 border-b border-border last:border-b-0">
-            {sp.media ? (
-              <img src={sp.media} alt={sp.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-border" loading="lazy" />
-            ) : (
-              <div className="w-10 h-10 rounded-lg bg-pastel-green-bg flex items-center justify-center flex-shrink-0">
-                <HugeiconsIcon icon={Leaf01Icon} size={16} className="text-pastel-green-text" />
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="text-[11.5px] font-medium">{sp.name}</div>
-              <div className="text-[10px] text-muted-foreground italic mt-0.5">{sp.scientificName}</div>
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                {sp.kingdom && (
-                  <span className="text-[8px] px-1.5 py-[2px] rounded bg-pastel-green-bg text-pastel-green-text uppercase tracking-wider font-semibold">
-                    {sp.kingdom}
-                  </span>
-                )}
-                {sp.family && <span className="text-[9px] text-muted-foreground">{sp.family}</span>}
-                {sp.order && <span className="text-[9px] text-muted-foreground">· {sp.order}</span>}
-              </div>
-            </div>
-          </div>
-        ))}
-        {species.length > 5 && (
-          <Expandable label={`${species.length - 5} especes supplementaires`}>
-            {species.slice(5).map((sp, i) => (
-              <div key={i} className="flex items-center gap-2.5 py-2 border-b border-border last:border-b-0">
-                {sp.media ? (
-                  <img src={sp.media} alt={sp.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" loading="lazy" />
-                ) : (
-                  <div className="w-8 h-8 rounded bg-pastel-green-bg flex items-center justify-center flex-shrink-0">
-                    <HugeiconsIcon icon={Leaf01Icon} size={12} className="text-pastel-green-text" />
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-medium truncate">{sp.name}</div>
-                  <div className="text-[9px] text-muted-foreground italic">{sp.scientificName}</div>
+      {/* Species list - NIVEAU 3 expandable */}
+      <Expandable label="Especes observees" defaultOpen={false}>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
+          <SectionTitle sub={`${species.length} especes`}>Especes observees</SectionTitle>
+          {species.slice(0, 5).map((sp, i) => (
+            <div key={i} className="flex items-start gap-3 py-2.5 border-b border-border last:border-b-0">
+              {sp.media ? (
+                <img src={sp.media} alt={sp.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-border" loading="lazy" />
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-pastel-green-bg flex items-center justify-center flex-shrink-0">
+                  <HugeiconsIcon icon={Leaf01Icon} size={16} className="text-pastel-green-text" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="text-[11.5px] font-medium">{sp.name}</div>
+                <div className="text-[10px] text-muted-foreground italic mt-0.5">{sp.scientificName}</div>
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                  {sp.kingdom && (
+                    <span className="text-[8px] px-1.5 py-[2px] rounded bg-pastel-green-bg text-pastel-green-text uppercase tracking-wider font-semibold">
+                      {sp.kingdom}
+                    </span>
+                  )}
+                  {sp.family && <span className="text-[9px] text-muted-foreground">{sp.family}</span>}
+                  {sp.order && <span className="text-[9px] text-muted-foreground">· {sp.order}</span>}
                 </div>
               </div>
-            ))}
-          </Expandable>
-        )}
-      </SectionCard>
+            </div>
+          ))}
+          {species.length > 5 && (
+            <Expandable label={`${species.length - 5} especes supplementaires`}>
+              {species.slice(5).map((sp, i) => (
+                <div key={i} className="flex items-center gap-2.5 py-2 border-b border-border last:border-b-0">
+                  {sp.media ? (
+                    <img src={sp.media} alt={sp.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" loading="lazy" />
+                  ) : (
+                    <div className="w-8 h-8 rounded bg-pastel-green-bg flex items-center justify-center flex-shrink-0">
+                      <HugeiconsIcon icon={Leaf01Icon} size={12} className="text-pastel-green-text" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-medium truncate">{sp.name}</div>
+                    <div className="text-[9px] text-muted-foreground italic">{sp.scientificName}</div>
+                  </div>
+                </div>
+              ))}
+            </Expandable>
+          )}
+        </SectionCard>
+      </Expandable>
     </div>
   );
 }
