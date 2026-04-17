@@ -138,176 +138,154 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
     );
   };
 
+  // Couleur sémantique de la scène active (pour pastille tab + halo header)
+  const sceneAccent = `hsl(var(--scene-${activeTab}-accent))`;
+  const sceneHalo = `hsl(var(--scene-${activeTab}-halo))`;
+
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange} snapPoints={[0.4, 0.94]} activeSnapPoint={undefined}>
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 bg-foreground/5 z-40" />
-        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl bg-card max-h-[94vh]" style={{ boxShadow: "0 -4px 40px rgba(0,0,0,0.08)" }}>
+        <Drawer.Overlay className="fixed inset-0 bg-foreground/[0.04] z-40 backdrop-blur-[2px]" />
+        <Drawer.Content
+          className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-[28px] bg-card max-h-[94vh] overflow-hidden"
+          style={{ boxShadow: "var(--shadow-drawer)" }}
+        >
+          {/* Halo de scène — teinte l'arrière du drawer subtilement */}
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-[280px] pointer-events-none transition-opacity duration-700"
+            style={{
+              background: `radial-gradient(120% 100% at 50% 0%, ${sceneHalo} 0%, transparent 70%)`,
+              opacity: 0.5,
+            }}
+          />
+
           {/* Handle */}
-          <div className="flex justify-center pt-3 pb-2">
-            <div className="w-9 h-[3px] rounded-full bg-border" />
+          <div className="relative flex justify-center pt-3 pb-2 z-10">
+            <div className="w-10 h-[3px] rounded-full bg-border/70" />
           </div>
 
-          {/* Hero Header */}
-          <div className="px-5 pb-4">
-            <div className="flex items-start justify-between gap-3 mb-1">
+          {/* Hero Header — éditorial */}
+          <div className="relative z-10 px-6 pb-5">
+            <div className="flex items-start justify-between gap-4 mb-3">
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] text-muted-foreground mb-0.5">{timeCtx.greeting}</div>
-                <h2 className="font-serif text-xl font-semibold text-foreground leading-[1.1] tracking-tight">
+                <div className="text-label text-muted-foreground/70 mb-2">{timeCtx.greeting}</div>
+                <h2 className="text-headline text-foreground text-balance">
                   {location.name}
                 </h2>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-xs text-muted-foreground leading-tight">
-                    {[location.state, location.country].filter(Boolean).join(", ")}
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-1.5">
+                  <span className="text-meta text-muted-foreground">
+                    {[location.state, location.country].filter(Boolean).join(" · ")}
                   </span>
                   {location.type && (
-                    <span className="inline-block px-1.5 py-[1px] rounded bg-secondary text-[9px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
-                      {location.type}
-                    </span>
+                    <span className="text-meta text-muted-foreground/60">— {location.type}</span>
                   )}
                 </div>
               </div>
               <button
                 onClick={handleNavigate}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
-                style={{ borderRadius: "6px" }}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-foreground text-background text-[11.5px] font-medium hover:bg-foreground/85 transition-colors flex-shrink-0 rounded-full active:scale-[0.97]"
+                aria-label="Naviguer vers ce lieu"
               >
                 <HugeiconsIcon icon={Navigation01Icon} size={13} />
                 Naviguer
               </button>
             </div>
 
-            {/* Hero weather strip */}
+            {/* Hero weather strip — typo nue */}
             {weather && wInfo && (
-              <div className="flex items-end gap-4 mt-4 pb-3 border-b border-border">
-                <div className="flex items-baseline gap-1">
-                  <span className="font-serif text-[42px] font-semibold leading-none tracking-tighter text-foreground">
-                    {Math.round(weather.current.temperature)}
+              <div className="mt-5 pt-5 hairline">
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <span className="text-display-xl text-foreground">
+                    {Math.round(weather.current.temperature)}°
                   </span>
-                  <span className="text-lg text-muted-foreground font-light">&deg;C</span>
-                </div>
-                <div className="flex flex-col gap-0.5 pb-1 flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-foreground leading-tight">{wInfo.label}</span>
-                    {dayType && <span className="text-sm">{dayType.emoji}</span>}
-                  </div>
-                  <span className="text-[11px] text-muted-foreground leading-tight">
-                    Ressenti {Math.round(weather.current.feelsLike)}&deg; · {weather.current.windSpeed} km/h {windDirectionToLabel(weather.current.windDirection)}
-                  </span>
-                  {comfort && (
-                    <span className="text-[10px] font-medium text-muted-foreground mt-0.5">
-                      Confort {comfort.emoji} {comfort.score}/100
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                    <span className="text-title text-foreground leading-tight">{wInfo.label}</span>
+                    <span className="text-meta text-muted-foreground">
+                      Ressenti {Math.round(weather.current.feelsLike)}° · {weather.current.windSpeed} km/h {windDirectionToLabel(weather.current.windDirection)}
                     </span>
+                  </div>
+                  {airQuality && (
+                    <div className="flex-shrink-0">
+                      <AQIBadge aqi={airQuality.aqi} />
+                    </div>
                   )}
                 </div>
-                {airQuality && (
-                  <div className="flex-shrink-0 pb-1">
-                    <AQIBadge aqi={airQuality.aqi} />
+                {comfort && (
+                  <div className="text-meta text-muted-foreground mt-2.5">
+                    Confort {comfort.score}/100
                   </div>
                 )}
               </div>
             )}
 
-            {/* Hero Header - Dynamic Summary */}
+            {/* Hero insight & key metrics */}
             {weather && airQuality && (
-              <div className="mt-4 space-y-3">
-                {/* Location header */}
-                <div className="flex items-center gap-2">
-                  <span className="font-serif text-xl font-bold leading-tight tracking-tight">{location.name}</span>
-                  {country && (
-                    <>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="text-sm text-muted-foreground font-medium">{country.flagEmoji} {country.name}</span>
-                    </>
-                  )}
-                </div>
+              <div className="mt-5 space-y-4">
+                {country && (
+                  <div className="text-meta text-muted-foreground">
+                    {country.flagEmoji} {country.name}
+                  </div>
+                )}
 
-                {/* Hero insight */}
                 {(() => {
                   const heroInsight = generateHeroInsight(weather, airQuality, earthquakes, eonetEvents, reliefAlerts);
                   return <InsightCard variant={heroInsight.variant}>{heroInsight.message}</InsightCard>;
                 })()}
 
-                {/* Key metrics */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {/* Confort */}
-                  {comfort && (
-                    <div className="rounded-xl p-2 bg-secondary/40 text-center">
-                      <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Confort</div>
-                      <div className="text-lg font-serif font-semibold mt-0.5">{comfort.score}</div>
-                    </div>
-                  )}
-                  {/* Air */}
-                  <div className="rounded-xl p-2 bg-secondary/40 text-center">
-                    <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Air</div>
-                    <div className="text-lg font-serif font-semibold mt-0.5">{airQuality.aqi}</div>
-                  </div>
-                  {/* Alertes */}
+                {/* Key metrics — divides au lieu de cards */}
+                <div className="grid grid-cols-4 gap-0 hairline pt-3">
+                  {comfort && <KeyMetric label="Confort" value={comfort.score} />}
+                  <KeyMetric label="Air" value={airQuality.aqi} />
                   {(() => {
                     const alertState = computeGlobalAlertState(earthquakes, eonetEvents, reliefAlerts);
-                    return (
-                      <div className="rounded-xl p-2 bg-secondary/40 text-center">
-                        <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Alertes</div>
-                        <div className={`text-lg font-serif font-semibold mt-0.5 ${
-                          alertState.variant === "red" ? "text-pastel-red-text" :
-                          alertState.variant === "yellow" ? "text-pastel-yellow-text" :
-                          "text-pastel-green-text"
-                        }`}>
-                          {alertState.state === "URGENCE" ? "!" : alertState.state === "ATTENTION" ? "!" : "✓"}
-                        </div>
-                      </div>
-                    );
+                    const tone = alertState.variant === "red" ? "scene-alerts-accent" : alertState.variant === "yellow" ? "scene-weather-accent" : "scene-air-accent";
+                    return <KeyMetric label="Alertes" value={alertState.state === "URGENCE" ? "!" : alertState.state === "ATTENTION" ? "·" : "✓"} accent={`hsl(var(--${tone}))`} />;
                   })()}
-                  {/* Biodiversité */}
                   {species.length > 0 && (() => {
                     const bioIndex = computeBiodiversityIndex(species);
-                    return (
-                      <div className="rounded-xl p-2 bg-secondary/40 text-center">
-                        <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">Bio</div>
-                        <div className={`text-lg font-serif font-semibold mt-0.5 ${
-                          bioIndex.variant === "red" ? "text-pastel-red-text" :
-                          bioIndex.variant === "yellow" ? "text-pastel-yellow-text" :
-                          "text-pastel-green-text"
-                        }`}>
-                          {bioIndex.score}
-                        </div>
-                      </div>
-                    );
+                    return <KeyMetric label="Bio" value={bioIndex.score} />;
                   })()}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Tabs */}
-          <div className="px-4 pb-2">
-            <div className="flex gap-1.5 overflow-x-auto hide-scrollbar">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
-                    activeTab === tab.id
-                      ? "bg-foreground text-primary-foreground"
-                      : "bg-secondary/60 text-muted-foreground hover:bg-secondary"
-                  }`}
-                >
-                  <HugeiconsIcon icon={tab.icon} size={13} />
-                  {tab.label}
-                  {tab.id === "alerts" && alertCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center">
-                      {alertCount > 9 ? "9+" : alertCount}
-                    </span>
-                  )}
-                </button>
-              ))}
+          {/* Tabs typographiques — pastille colorée pour l'actif */}
+          <div className="relative z-10 px-6 pb-3">
+            <div className="flex gap-5 overflow-x-auto hide-scrollbar -mx-1 px-1">
+              {TABS.map((tab) => {
+                const isActive = activeTab === tab.id;
+                const tabAccent = `hsl(var(--scene-${tab.id}-accent))`;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`relative flex items-center gap-1.5 py-2 text-[12.5px] whitespace-nowrap transition-all ${
+                      isActive ? "text-foreground font-medium" : "text-muted-foreground/70 hover:text-foreground/80 font-normal"
+                    }`}
+                  >
+                    {isActive && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full transition-all"
+                        style={{ background: tabAccent }}
+                      />
+                    )}
+                    {tab.label}
+                    {tab.id === "alerts" && alertCount > 0 && (
+                      <span className="ml-0.5 text-meta text-muted-foreground/70">
+                        ({alertCount > 9 ? "9+" : alertCount})
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+            <div className="hairline mt-1" />
           </div>
 
-          <div className="w-full h-px bg-border" />
-
           {/* Content */}
-          <div className="flex-1 overflow-y-auto hide-scrollbar px-5 py-4">
+          <div className="relative z-10 flex-1 overflow-y-auto hide-scrollbar px-6 py-4">
             {loading && !weather ? (
               <LoadingSpinner />
             ) : (
@@ -324,7 +302,7 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
                 {activeTab === "nature" && <NatureTab species={species} location={location} />}
               </>
             )}
-            <div className="h-6" />
+            <div className="h-8" />
           </div>
         </Drawer.Content>
       </Drawer.Portal>
@@ -334,23 +312,45 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
 
 // ====== SHARED COMPONENTS ======
 
-function InsightCard({ children, variant = "blue" }: { children: React.ReactNode; variant?: "red" | "yellow" | "green" | "blue" }) {
-  const bgColors = {
-    red: "bg-pastel-red-bg/5",
-    yellow: "bg-pastel-yellow-bg/5",
-    green: "bg-pastel-green-bg/5",
-    blue: "bg-pastel-blue-bg/5"
-  };
-  const textColors = {
-    red: "text-pastel-red-text/60",
-    yellow: "text-pastel-yellow-text/60",
-    green: "text-pastel-green-text/60",
-    blue: "text-pastel-blue-text/60"
-  };
-
+function KeyMetric({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
   return (
-    <div className={`px-3 py-2.5 rounded-lg ${bgColors[variant]}`}>
-      <div className={`text-[11px] font-medium leading-relaxed ${textColors[variant]}`}>
+    <div className="flex flex-col items-start px-1">
+      <span className="text-label text-muted-foreground/70" style={{ fontSize: "9.5px", letterSpacing: "0.08em" }}>{label}</span>
+      <span
+        className="font-serif font-medium mt-1.5 tracking-tight"
+        style={{ fontSize: "22px", lineHeight: "1", color: accent || "hsl(var(--foreground))" }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ====== SHARED COMPONENTS ======
+
+function InsightCard({ children, variant = "blue" }: { children: React.ReactNode; variant?: "red" | "yellow" | "green" | "blue" }) {
+  // Atmosphère teintée + accent vertical, pas de bg-block générique
+  const accents = {
+    red: "hsl(var(--pastel-red-text))",
+    yellow: "hsl(var(--pastel-yellow-text))",
+    green: "hsl(var(--pastel-green-text))",
+    blue: "hsl(var(--pastel-blue-text))",
+  };
+  const halos = {
+    red: "hsl(var(--pastel-red-bg))",
+    yellow: "hsl(var(--pastel-yellow-bg))",
+    green: "hsl(var(--pastel-green-bg))",
+    blue: "hsl(var(--pastel-blue-bg))",
+  };
+  return (
+    <div
+      className="relative pl-3.5 pr-3 py-2.5 rounded-r-md"
+      style={{
+        background: `linear-gradient(90deg, ${halos[variant]} 0%, transparent 80%)`,
+        borderLeft: `2px solid ${accents[variant]}`,
+      }}
+    >
+      <div className="text-[12px] leading-[1.55] text-foreground/85 font-normal">
         {children}
       </div>
     </div>
@@ -359,16 +359,31 @@ function InsightCard({ children, variant = "blue" }: { children: React.ReactNode
 
 function LoadingSpinner() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3">
-      <div className="w-5 h-5 border-2 border-border border-t-foreground rounded-full animate-spin" />
-      <span className="text-[11px] text-muted-foreground">Chargement des donnees</span>
+    <div className="flex flex-col items-start py-8 gap-3 animate-fade-in-up">
+      {/* Skeletons typographiques — pas de spinner générique */}
+      <div className="h-3 w-32 rounded bg-secondary/70 animate-pulse" />
+      <div className="h-7 w-48 rounded bg-secondary/70 animate-pulse" />
+      <div className="space-y-2 mt-2 w-full max-w-md">
+        <div className="h-2.5 w-full rounded bg-secondary/50 animate-pulse" />
+        <div className="h-2.5 w-4/5 rounded bg-secondary/50 animate-pulse" />
+        <div className="h-2.5 w-3/5 rounded bg-secondary/50 animate-pulse" />
+      </div>
+      <span className="text-meta text-muted-foreground/70 mt-3">Chargement…</span>
     </div>
   );
 }
 
 function SectionCard({ children, className = "", style, bordered = true }: { children: React.ReactNode; className?: string; style?: React.CSSProperties; bordered?: boolean }) {
+  // Card adoucie : radius généreux, shadow whisper, border ultra-light optionnelle
   return (
-    <div className={`${bordered ? "border border-border" : ""} rounded-xl p-4 mb-3 bg-card ${className}`} style={style}>
+    <div
+      className={`rounded-2xl p-4 mb-3 bg-card/70 ${className}`}
+      style={{
+        boxShadow: "var(--shadow-whisper)",
+        border: bordered ? "1px solid hsl(var(--border) / 0.45)" : "none",
+        ...style,
+      }}
+    >
       {children}
     </div>
   );
@@ -376,71 +391,78 @@ function SectionCard({ children, className = "", style, bordered = true }: { chi
 
 function Tag({ children, variant = "blue" }: { children: React.ReactNode; variant?: "blue" | "green" | "yellow" | "red" | "purple" }) {
   const styles = {
-    blue: "bg-pastel-blue-bg/5 text-pastel-blue-text/40",
-    green: "bg-pastel-green-bg/5 text-pastel-green-text/40",
-    yellow: "bg-pastel-yellow-bg/5 text-pastel-yellow-text/40",
-    red: "bg-pastel-red-bg/5 text-pastel-red-text/40",
-    purple: "bg-pastel-purple-bg/5 text-pastel-purple-text/40",
+    blue: { bg: "hsl(var(--pastel-blue-bg) / 0.6)", text: "hsl(var(--pastel-blue-text))" },
+    green: { bg: "hsl(var(--pastel-green-bg) / 0.6)", text: "hsl(var(--pastel-green-text))" },
+    yellow: { bg: "hsl(var(--pastel-yellow-bg) / 0.6)", text: "hsl(var(--pastel-yellow-text))" },
+    red: { bg: "hsl(var(--pastel-red-bg) / 0.6)", text: "hsl(var(--pastel-red-text))" },
+    purple: { bg: "hsl(var(--pastel-purple-bg) / 0.6)", text: "hsl(var(--pastel-purple-text))" },
   };
   return (
-    <span className={`inline-block px-2.5 py-[3px] rounded-full text-[9px] uppercase tracking-[0.06em] font-semibold ${styles[variant]}`}>
+    <span
+      className="inline-block px-2 py-[2px] rounded-md text-[9.5px] uppercase tracking-[0.08em] font-medium"
+      style={{ background: styles[variant].bg, color: styles[variant].text }}
+    >
       {children}
     </span>
   );
 }
 
 function DataRow({ label, value, mono = false }: { label: string; value: string | number; mono?: boolean }) {
+  // Liste éditoriale : hairline ultra-doux, alignement baseline, valeur mono optionnelle
   return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className={`text-[12px] font-medium text-right max-w-[55%] ${mono ? "font-mono text-[11px]" : ""}`}>{value}</span>
+    <div className="flex items-baseline justify-between py-2.5 hairline-b last:border-b-0" style={{ borderBottomColor: "hsl(var(--border) / 0.4)" }}>
+      <span className="text-[12px] text-muted-foreground">{label}</span>
+      <span className={`text-[12.5px] text-foreground text-right max-w-[55%] ${mono ? "font-mono text-[11.5px] tracking-tight" : "font-medium"}`}>{value}</span>
     </div>
   );
 }
 
 function NarrativeBlock({ text, icon }: { text: string; icon?: any }) {
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b border-border last:border-b-0">
-      <div className="w-6 h-6 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0 mt-0.5">
-        <HugeiconsIcon icon={icon || InformationCircleIcon} size={13} className="text-muted-foreground" />
+    <div className="flex items-start gap-3 py-3 hairline-b last:border-b-0" style={{ borderBottomColor: "hsl(var(--border) / 0.4)" }}>
+      <div className="w-5 h-5 rounded-full bg-secondary/60 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <HugeiconsIcon icon={icon || InformationCircleIcon} size={11} className="text-muted-foreground/80" />
       </div>
-      <p className="text-[11.5px] leading-[1.6] text-foreground">{text}</p>
+      <p className="text-[12.5px] leading-[1.6] text-foreground/90 flex-1">{text}</p>
     </div>
   );
 }
 
 function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
-    <div className="mb-3">
-      <div className="text-[10px] text-muted-foreground uppercase tracking-[0.08em] font-semibold">{children}</div>
-      {sub && <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>}
+    <div className="mb-3 mt-1">
+      <div className="text-label text-muted-foreground/70" style={{ fontSize: "10px" }}>{children}</div>
+      {sub && <div className="text-meta text-muted-foreground/60 mt-1 normal-case">{sub}</div>}
     </div>
   );
 }
 
 function AQIBadge({ aqi }: { aqi: number }) {
   const info = getAQILabel(aqi);
-  const colorMap = {
-    green: "bg-pastel-green-bg text-pastel-green-text",
-    yellow: "bg-pastel-yellow-bg text-pastel-yellow-text",
-    red: "bg-pastel-red-bg text-pastel-red-text",
-    purple: "bg-pastel-purple-bg text-pastel-purple-text",
+  const palette = {
+    green: { bg: "hsl(var(--pastel-green-bg))", text: "hsl(var(--pastel-green-text))" },
+    yellow: { bg: "hsl(var(--pastel-yellow-bg))", text: "hsl(var(--pastel-yellow-text))" },
+    red: { bg: "hsl(var(--pastel-red-bg))", text: "hsl(var(--pastel-red-text))" },
+    purple: { bg: "hsl(var(--pastel-purple-bg))", text: "hsl(var(--pastel-purple-text))" },
   };
+  const c = palette[info.color];
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider ${colorMap[info.color]}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
+    <span
+      className="inline-flex items-baseline gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-medium tracking-wide"
+      style={{ background: c.bg, color: c.text }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full self-center" style={{ background: c.text, opacity: 0.7 }} />
       AQI {aqi}
     </span>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
+  // Empty éditorial : typo nue, pas de carte
   return (
-    <div className="flex flex-col items-center justify-center py-12 gap-2">
-      <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-        <HugeiconsIcon icon={InformationCircleIcon} size={18} className="text-muted-foreground" />
-      </div>
-      <p className="text-[11px] text-muted-foreground text-center max-w-[220px] leading-relaxed">{text}</p>
+    <div className="py-10 max-w-xs">
+      <div className="text-label text-muted-foreground/60 mb-2">Indisponible</div>
+      <p className="text-[14px] leading-[1.55] text-foreground/70 text-pretty">{text}</p>
     </div>
   );
 }
@@ -448,8 +470,8 @@ function EmptyState({ text }: { text: string }) {
 function ProgressBar({ value, max, color }: { value: number; max: number; color: string }) {
   const ratio = Math.min(value / max, 1);
   return (
-    <div className="w-full h-[5px] bg-secondary rounded-full overflow-hidden">
-      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${ratio * 100}%`, backgroundColor: color }} />
+    <div className="w-full h-[4px] bg-secondary/60 rounded-full overflow-hidden">
+      <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${ratio * 100}%`, backgroundColor: color }} />
     </div>
   );
 }
@@ -458,25 +480,30 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color:
 function Expandable({ label, defaultOpen = false, children }: { label: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="mt-2">
+    <div className="mt-3">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-1.5 text-label text-muted-foreground hover:text-foreground transition-colors"
+        style={{ fontSize: "10px" }}
       >
-        <span className={`transition-transform duration-200 ${open ? "rotate-90" : ""}`}>›</span>
+        <span className={`transition-transform duration-300 ease-out ${open ? "rotate-90" : ""}`}>›</span>
         {label}
       </button>
-      {open && <div className="mt-2 animate-fade-in-up">{children}</div>}
+      {open && <div className="mt-3 animate-fade-in-up">{children}</div>}
     </div>
   );
 }
 
 function MiniStat({ label, value, sub, accent = false }: { label: string; value: string; sub?: string; accent?: boolean }) {
+  // Stat sans box quand pas accent — typo nue alignée
   return (
-    <div className={`rounded-xl p-3 ${accent ? "bg-pastel-yellow-bg/50" : "bg-secondary/40"}`}>
-      <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">{label}</div>
-      <div className="text-[13px] font-semibold mt-1 font-mono leading-tight">{value}</div>
-      {sub && <div className="text-[9px] text-muted-foreground mt-0.5">{sub}</div>}
+    <div
+      className={accent ? "rounded-xl p-3" : "py-1"}
+      style={accent ? { background: "hsl(var(--pastel-yellow-bg) / 0.5)" } : undefined}
+    >
+      <div className="text-label text-muted-foreground/70" style={{ fontSize: "9.5px" }}>{label}</div>
+      <div className="text-[15px] font-medium mt-1 font-mono leading-tight tracking-tight text-foreground">{value}</div>
+      {sub && <div className="text-meta text-muted-foreground/70 mt-0.5">{sub}</div>}
     </div>
   );
 }

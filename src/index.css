@@ -1,65 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
-
 @layer base {
   :root {
-    --background: 40 20% 98%;
-    --foreground: 220 10% 10%;
+    /* === Canvas — ivoire crémeux, plus chaud === */
+    --background: 38 32% 97.5%;
+    --foreground: 30 12% 12%;
 
-    --card: 40 10% 99%;
-    --card-foreground: 220 10% 10%;
+    --card: 36 22% 99%;
+    --card-foreground: 30 12% 12%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 10% 10%;
+    --popover: 36 22% 99.5%;
+    --popover-foreground: 30 12% 12%;
 
-    --primary: 220 10% 7%;
-    --primary-foreground: 40 20% 98%;
+    --primary: 30 14% 10%;
+    --primary-foreground: 38 32% 97.5%;
 
-    --secondary: 40 10% 95%;
-    --secondary-foreground: 220 10% 10%;
+    --secondary: 38 18% 94.5%;
+    --secondary-foreground: 30 12% 12%;
 
-    --muted: 40 10% 95%;
-    --muted-foreground: 30 3% 47%;
+    --muted: 38 16% 94%;
+    --muted-foreground: 30 6% 44%;
 
-    --accent: 40 10% 95%;
-    --accent-foreground: 220 10% 10%;
+    --accent: 38 18% 94.5%;
+    --accent-foreground: 30 12% 12%;
 
-    --destructive: 0 60% 50%;
+    --destructive: 0 55% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 92%;
-    --input: 0 0% 92%;
-    --ring: 220 10% 10%;
+    --border: 35 14% 89%;
+    --input: 35 14% 89%;
+    --ring: 30 12% 12%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
-    /* Spot pastels */
-    --pastel-red-bg: 0 75% 96%;
-    --pastel-red-text: 0 55% 40%;
-    --pastel-blue-bg: 205 85% 94%;
-    --pastel-blue-text: 205 65% 37%;
-    --pastel-green-bg: 120 20% 94%;
-    --pastel-green-text: 120 30% 30%;
-    --pastel-yellow-bg: 42 80% 92%;
-    --pastel-yellow-text: 42 100% 30%;
-    --pastel-purple-bg: 270 40% 95%;
-    --pastel-purple-text: 270 40% 35%;
+    /* === Spot pastels — desaturés, crémeux === */
+    --pastel-red-bg: 8 60% 95%;
+    --pastel-red-text: 8 45% 38%;
+    --pastel-blue-bg: 205 55% 94%;
+    --pastel-blue-text: 205 45% 35%;
+    --pastel-green-bg: 130 25% 93%;
+    --pastel-green-text: 135 28% 28%;
+    --pastel-yellow-bg: 42 65% 92%;
+    --pastel-yellow-text: 38 70% 28%;
+    --pastel-purple-bg: 268 30% 94%;
+    --pastel-purple-text: 268 32% 36%;
 
-    /* Map overlay */
-    --overlay: 0 0% 100%;
-    --overlay-muted: 40 10% 97%;
+    /* === Scènes sémantiques (catégorie active = teinte d'ambiance) === */
+    --scene-weather-halo: 42 80% 88%;
+    --scene-weather-accent: 38 70% 30%;
+    --scene-air-halo: 130 40% 90%;
+    --scene-air-accent: 135 35% 26%;
+    --scene-alerts-halo: 8 65% 92%;
+    --scene-alerts-accent: 8 50% 38%;
+    --scene-savoir-halo: 268 35% 92%;
+    --scene-savoir-accent: 268 35% 36%;
+    --scene-nearby-halo: 205 60% 91%;
+    --scene-nearby-accent: 205 50% 32%;
+    --scene-nature-halo: 130 40% 90%;
+    --scene-nature-accent: 135 35% 26%;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* === Map overlays === */
+    --overlay: 36 22% 99.5%;
+    --overlay-muted: 38 18% 96.5%;
+
+    /* === Shadows warm — jamais noir pur === */
+    --shadow-whisper: 0 1px 2px hsl(30 30% 30% / 0.04);
+    --shadow-soft: 0 8px 28px -16px hsl(30 30% 25% / 0.10);
+    --shadow-lifted: 0 24px 60px -28px hsl(30 35% 22% / 0.16);
+    --shadow-drawer: 0 -12px 60px -20px hsl(30 35% 18% / 0.18);
+
+    --sidebar-background: 36 22% 99%;
+    --sidebar-foreground: 30 12% 26%;
+    --sidebar-primary: 30 14% 10%;
+    --sidebar-primary-foreground: 38 32% 97.5%;
+    --sidebar-accent: 38 18% 94.5%;
+    --sidebar-accent-foreground: 30 12% 12%;
+    --sidebar-border: 35 14% 89%;
+    --sidebar-ring: 30 12% 12%;
   }
 }
 
@@ -71,69 +92,132 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'DM Sans', 'SF Pro Display', 'Helvetica Neue', sans-serif;
-    color: hsl(220 10% 10%);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
-  h1, h2, h3 {
+  h1, h2, h3, h4 {
     font-family: 'Newsreader', 'Georgia', serif;
     letter-spacing: -0.02em;
-    line-height: 1.1;
+    line-height: 1.08;
+    font-weight: 500;
   }
 
   code, kbd, .mono {
     font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-feature-settings: "tnum", "ss01";
   }
 }
 
-/* MapLibre overrides */
+/* === Échelle typographique éditoriale === */
+@layer utilities {
+  .text-display-xl { font-family: 'Newsreader', serif; font-size: clamp(48px, 13vw, 72px); line-height: 0.95; letter-spacing: -0.035em; font-weight: 500; }
+  .text-display { font-family: 'Newsreader', serif; font-size: clamp(34px, 8vw, 48px); line-height: 1.02; letter-spacing: -0.03em; font-weight: 500; }
+  .text-headline { font-family: 'Newsreader', serif; font-size: clamp(22px, 5vw, 30px); line-height: 1.1; letter-spacing: -0.022em; font-weight: 500; }
+  .text-title { font-size: 17px; line-height: 1.35; font-weight: 500; letter-spacing: -0.005em; }
+  .text-body { font-size: 14.5px; line-height: 1.55; }
+  .text-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.4; letter-spacing: 0.01em; }
+  .text-label { font-size: 10.5px; line-height: 1.2; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .shadow-whisper { box-shadow: var(--shadow-whisper); }
+  .shadow-soft { box-shadow: var(--shadow-soft); }
+  .shadow-lifted { box-shadow: var(--shadow-lifted); }
+  .shadow-drawer { box-shadow: var(--shadow-drawer); }
+
+  /* Hairline — séparateur 1px ultra-doux */
+  .hairline { border-top: 1px solid hsl(var(--border) / 0.6); }
+  .hairline-b { border-bottom: 1px solid hsl(var(--border) / 0.6); }
+
+  /* Texte balanced pour titres */
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+}
+
+/* === MapLibre overrides — popups éditoriaux === */
 .maplibregl-ctrl-attrib {
   font-size: 10px !important;
-  opacity: 0.6;
+  opacity: 0.55;
+}
+
+.maplibregl-ctrl-attrib-button {
+  display: none !important;
 }
 
 .maplibregl-popup-content {
-  border-radius: 8px !important;
-  padding: 12px 16px !important;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06) !important;
-  border: 1px solid hsl(0 0% 92%) !important;
+  border-radius: 14px !important;
+  padding: 14px 18px !important;
+  box-shadow: var(--shadow-soft) !important;
+  border: 1px solid hsl(var(--border) / 0.5) !important;
+  background: hsl(var(--card)) !important;
   font-family: 'DM Sans', sans-serif !important;
 }
 
-/* Vaul drawer overrides */
+.maplibregl-popup-tip {
+  border-top-color: hsl(var(--card)) !important;
+}
+
+.maplibregl-ctrl-group {
+  background: hsl(var(--card)) !important;
+  box-shadow: var(--shadow-soft) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border) / 0.5) !important;
+}
+
+.maplibregl-ctrl-group button {
+  background: transparent !important;
+}
+
+/* === Vaul drawer === */
 [vaul-drawer] {
   font-family: 'DM Sans', sans-serif;
 }
 
-/* Scroll entry animation */
+/* === Animations === */
 @keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fade-in-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   opacity: 0;
 }
 
-/* Search input */
-.search-input:focus {
-  outline: none;
-  box-shadow: 0 0 0 1px hsl(0 0% 85%);
+/* === Halos atmosphériques — desktop only === */
+@keyframes drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(6vw, -4vh, 0) scale(1.08); }
+}
+@keyframes drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50% { transform: translate3d(-5vw, 5vh, 0) scale(0.95); }
+}
+@keyframes drift-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.95); }
+  50% { transform: translate3d(4vw, 6vh, 0) scale(1.1); }
 }
 
-/* Hide scrollbar but keep scroll */
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.ambient-halo { will-change: transform; transform: translate3d(0,0,0); }
+
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .ambient-halo-a { animation: drift-a 42s ease-in-out infinite; }
+  .ambient-halo-b { animation: drift-b 56s ease-in-out infinite; }
+  .ambient-halo-c { animation: drift-c 48s ease-in-out infinite; }
 }
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
+
+/* === Search input === */
+.search-input:focus { outline: none; }
+
+/* === Hide scrollbar === */
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* === Reduced motion safety === */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
