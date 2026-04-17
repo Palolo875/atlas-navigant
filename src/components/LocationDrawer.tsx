@@ -329,22 +329,28 @@ function KeyMetric({ label, value, accent }: { label: string; value: string | nu
 // ====== SHARED COMPONENTS ======
 
 function InsightCard({ children, variant = "blue" }: { children: React.ReactNode; variant?: "red" | "yellow" | "green" | "blue" }) {
-  const bgColors = {
-    red: "bg-pastel-red-bg/5",
-    yellow: "bg-pastel-yellow-bg/5",
-    green: "bg-pastel-green-bg/5",
-    blue: "bg-pastel-blue-bg/5"
+  // Atmosphère teintée + accent vertical, pas de bg-block générique
+  const accents = {
+    red: "hsl(var(--pastel-red-text))",
+    yellow: "hsl(var(--pastel-yellow-text))",
+    green: "hsl(var(--pastel-green-text))",
+    blue: "hsl(var(--pastel-blue-text))",
   };
-  const textColors = {
-    red: "text-pastel-red-text/60",
-    yellow: "text-pastel-yellow-text/60",
-    green: "text-pastel-green-text/60",
-    blue: "text-pastel-blue-text/60"
+  const halos = {
+    red: "hsl(var(--pastel-red-bg))",
+    yellow: "hsl(var(--pastel-yellow-bg))",
+    green: "hsl(var(--pastel-green-bg))",
+    blue: "hsl(var(--pastel-blue-bg))",
   };
-
   return (
-    <div className={`px-3 py-2.5 rounded-lg ${bgColors[variant]}`}>
-      <div className={`text-[11px] font-medium leading-relaxed ${textColors[variant]}`}>
+    <div
+      className="relative pl-3.5 pr-3 py-2.5 rounded-r-md"
+      style={{
+        background: `linear-gradient(90deg, ${halos[variant]} 0%, transparent 80%)`,
+        borderLeft: `2px solid ${accents[variant]}`,
+      }}
+    >
+      <div className="text-[12px] leading-[1.55] text-foreground/85 font-normal">
         {children}
       </div>
     </div>
@@ -353,16 +359,31 @@ function InsightCard({ children, variant = "blue" }: { children: React.ReactNode
 
 function LoadingSpinner() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3">
-      <div className="w-5 h-5 border-2 border-border border-t-foreground rounded-full animate-spin" />
-      <span className="text-[11px] text-muted-foreground">Chargement des donnees</span>
+    <div className="flex flex-col items-start py-8 gap-3 animate-fade-in-up">
+      {/* Skeletons typographiques — pas de spinner générique */}
+      <div className="h-3 w-32 rounded bg-secondary/70 animate-pulse" />
+      <div className="h-7 w-48 rounded bg-secondary/70 animate-pulse" />
+      <div className="space-y-2 mt-2 w-full max-w-md">
+        <div className="h-2.5 w-full rounded bg-secondary/50 animate-pulse" />
+        <div className="h-2.5 w-4/5 rounded bg-secondary/50 animate-pulse" />
+        <div className="h-2.5 w-3/5 rounded bg-secondary/50 animate-pulse" />
+      </div>
+      <span className="text-meta text-muted-foreground/70 mt-3">Chargement…</span>
     </div>
   );
 }
 
 function SectionCard({ children, className = "", style, bordered = true }: { children: React.ReactNode; className?: string; style?: React.CSSProperties; bordered?: boolean }) {
+  // Card adoucie : radius généreux, shadow whisper, border ultra-light optionnelle
   return (
-    <div className={`${bordered ? "border border-border" : ""} rounded-xl p-4 mb-3 bg-card ${className}`} style={style}>
+    <div
+      className={`rounded-2xl p-4 mb-3 bg-card/70 ${className}`}
+      style={{
+        boxShadow: "var(--shadow-whisper)",
+        border: bordered ? "1px solid hsl(var(--border) / 0.45)" : "none",
+        ...style,
+      }}
+    >
       {children}
     </div>
   );
@@ -370,71 +391,78 @@ function SectionCard({ children, className = "", style, bordered = true }: { chi
 
 function Tag({ children, variant = "blue" }: { children: React.ReactNode; variant?: "blue" | "green" | "yellow" | "red" | "purple" }) {
   const styles = {
-    blue: "bg-pastel-blue-bg/5 text-pastel-blue-text/40",
-    green: "bg-pastel-green-bg/5 text-pastel-green-text/40",
-    yellow: "bg-pastel-yellow-bg/5 text-pastel-yellow-text/40",
-    red: "bg-pastel-red-bg/5 text-pastel-red-text/40",
-    purple: "bg-pastel-purple-bg/5 text-pastel-purple-text/40",
+    blue: { bg: "hsl(var(--pastel-blue-bg) / 0.6)", text: "hsl(var(--pastel-blue-text))" },
+    green: { bg: "hsl(var(--pastel-green-bg) / 0.6)", text: "hsl(var(--pastel-green-text))" },
+    yellow: { bg: "hsl(var(--pastel-yellow-bg) / 0.6)", text: "hsl(var(--pastel-yellow-text))" },
+    red: { bg: "hsl(var(--pastel-red-bg) / 0.6)", text: "hsl(var(--pastel-red-text))" },
+    purple: { bg: "hsl(var(--pastel-purple-bg) / 0.6)", text: "hsl(var(--pastel-purple-text))" },
   };
   return (
-    <span className={`inline-block px-2.5 py-[3px] rounded-full text-[9px] uppercase tracking-[0.06em] font-semibold ${styles[variant]}`}>
+    <span
+      className="inline-block px-2 py-[2px] rounded-md text-[9.5px] uppercase tracking-[0.08em] font-medium"
+      style={{ background: styles[variant].bg, color: styles[variant].text }}
+    >
       {children}
     </span>
   );
 }
 
 function DataRow({ label, value, mono = false }: { label: string; value: string | number; mono?: boolean }) {
+  // Liste éditoriale : hairline ultra-doux, alignement baseline, valeur mono optionnelle
   return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className={`text-[12px] font-medium text-right max-w-[55%] ${mono ? "font-mono text-[11px]" : ""}`}>{value}</span>
+    <div className="flex items-baseline justify-between py-2.5 hairline-b last:border-b-0" style={{ borderBottomColor: "hsl(var(--border) / 0.4)" }}>
+      <span className="text-[12px] text-muted-foreground">{label}</span>
+      <span className={`text-[12.5px] text-foreground text-right max-w-[55%] ${mono ? "font-mono text-[11.5px] tracking-tight" : "font-medium"}`}>{value}</span>
     </div>
   );
 }
 
 function NarrativeBlock({ text, icon }: { text: string; icon?: any }) {
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b border-border last:border-b-0">
-      <div className="w-6 h-6 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0 mt-0.5">
-        <HugeiconsIcon icon={icon || InformationCircleIcon} size={13} className="text-muted-foreground" />
+    <div className="flex items-start gap-3 py-3 hairline-b last:border-b-0" style={{ borderBottomColor: "hsl(var(--border) / 0.4)" }}>
+      <div className="w-5 h-5 rounded-full bg-secondary/60 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <HugeiconsIcon icon={icon || InformationCircleIcon} size={11} className="text-muted-foreground/80" />
       </div>
-      <p className="text-[11.5px] leading-[1.6] text-foreground">{text}</p>
+      <p className="text-[12.5px] leading-[1.6] text-foreground/90 flex-1">{text}</p>
     </div>
   );
 }
 
 function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
-    <div className="mb-3">
-      <div className="text-[10px] text-muted-foreground uppercase tracking-[0.08em] font-semibold">{children}</div>
-      {sub && <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>}
+    <div className="mb-3 mt-1">
+      <div className="text-label text-muted-foreground/70" style={{ fontSize: "10px" }}>{children}</div>
+      {sub && <div className="text-meta text-muted-foreground/60 mt-1 normal-case">{sub}</div>}
     </div>
   );
 }
 
 function AQIBadge({ aqi }: { aqi: number }) {
   const info = getAQILabel(aqi);
-  const colorMap = {
-    green: "bg-pastel-green-bg text-pastel-green-text",
-    yellow: "bg-pastel-yellow-bg text-pastel-yellow-text",
-    red: "bg-pastel-red-bg text-pastel-red-text",
-    purple: "bg-pastel-purple-bg text-pastel-purple-text",
+  const palette = {
+    green: { bg: "hsl(var(--pastel-green-bg))", text: "hsl(var(--pastel-green-text))" },
+    yellow: { bg: "hsl(var(--pastel-yellow-bg))", text: "hsl(var(--pastel-yellow-text))" },
+    red: { bg: "hsl(var(--pastel-red-bg))", text: "hsl(var(--pastel-red-text))" },
+    purple: { bg: "hsl(var(--pastel-purple-bg))", text: "hsl(var(--pastel-purple-text))" },
   };
+  const c = palette[info.color];
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider ${colorMap[info.color]}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
+    <span
+      className="inline-flex items-baseline gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-medium tracking-wide"
+      style={{ background: c.bg, color: c.text }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full self-center" style={{ background: c.text, opacity: 0.7 }} />
       AQI {aqi}
     </span>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
+  // Empty éditorial : typo nue, pas de carte
   return (
-    <div className="flex flex-col items-center justify-center py-12 gap-2">
-      <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-        <HugeiconsIcon icon={InformationCircleIcon} size={18} className="text-muted-foreground" />
-      </div>
-      <p className="text-[11px] text-muted-foreground text-center max-w-[220px] leading-relaxed">{text}</p>
+    <div className="py-10 max-w-xs">
+      <div className="text-label text-muted-foreground/60 mb-2">Indisponible</div>
+      <p className="text-[14px] leading-[1.55] text-foreground/70 text-pretty">{text}</p>
     </div>
   );
 }
@@ -442,8 +470,8 @@ function EmptyState({ text }: { text: string }) {
 function ProgressBar({ value, max, color }: { value: number; max: number; color: string }) {
   const ratio = Math.min(value / max, 1);
   return (
-    <div className="w-full h-[5px] bg-secondary rounded-full overflow-hidden">
-      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${ratio * 100}%`, backgroundColor: color }} />
+    <div className="w-full h-[4px] bg-secondary/60 rounded-full overflow-hidden">
+      <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${ratio * 100}%`, backgroundColor: color }} />
     </div>
   );
 }
@@ -452,25 +480,30 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color:
 function Expandable({ label, defaultOpen = false, children }: { label: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="mt-2">
+    <div className="mt-3">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-1.5 text-label text-muted-foreground hover:text-foreground transition-colors"
+        style={{ fontSize: "10px" }}
       >
-        <span className={`transition-transform duration-200 ${open ? "rotate-90" : ""}`}>›</span>
+        <span className={`transition-transform duration-300 ease-out ${open ? "rotate-90" : ""}`}>›</span>
         {label}
       </button>
-      {open && <div className="mt-2 animate-fade-in-up">{children}</div>}
+      {open && <div className="mt-3 animate-fade-in-up">{children}</div>}
     </div>
   );
 }
 
 function MiniStat({ label, value, sub, accent = false }: { label: string; value: string; sub?: string; accent?: boolean }) {
+  // Stat sans box quand pas accent — typo nue alignée
   return (
-    <div className={`rounded-xl p-3 ${accent ? "bg-pastel-yellow-bg/50" : "bg-secondary/40"}`}>
-      <div className="text-[9px] text-muted-foreground uppercase tracking-[0.06em] font-medium">{label}</div>
-      <div className="text-[13px] font-semibold mt-1 font-mono leading-tight">{value}</div>
-      {sub && <div className="text-[9px] text-muted-foreground mt-0.5">{sub}</div>}
+    <div
+      className={accent ? "rounded-xl p-3" : "py-1"}
+      style={accent ? { background: "hsl(var(--pastel-yellow-bg) / 0.5)" } : undefined}
+    >
+      <div className="text-label text-muted-foreground/70" style={{ fontSize: "9.5px" }}>{label}</div>
+      <div className="text-[15px] font-medium mt-1 font-mono leading-tight tracking-tight text-foreground">{value}</div>
+      {sub && <div className="text-meta text-muted-foreground/70 mt-0.5">{sub}</div>}
     </div>
   );
 }
