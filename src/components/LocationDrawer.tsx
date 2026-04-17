@@ -312,7 +312,7 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
               <LoadingSpinner />
             ) : (
               <>
-                {activeTab === "weather" && <WeatherTab weather={weather} narratives={narratives} airQuality={airQuality} />}
+                {activeTab === "weather" && (weather ? <WeatherTab weather={weather} narratives={narratives} airQuality={airQuality} /> : <LoadingSpinner />)}
                 {activeTab === "air" && <AirTab airQuality={airQuality} />}
                 {activeTab === "alerts" && (
                   <AlertsTab earthquakes={earthquakes} eonetEvents={eonetEvents} reliefAlerts={reliefAlerts} location={location} />
