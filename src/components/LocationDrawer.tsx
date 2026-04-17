@@ -1557,7 +1557,7 @@ function NearbyTab({ pois, location }: { pois: OverpassPOI[]; location: GeoResul
                     </div>
                   </div>
                   <button
-                    onClick={() => window.open(`geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})", "_blank")}
+                    onClick={() => window.open(`geo:${poi.lat},${poi.lon}?q=${poi.lat},${poi.lon}(${encodeURIComponent(poi.name)})`, "_blank")}
                     className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 ml-2"
                   >
                     <HugeiconsIcon icon={Navigation01Icon} size={13} />
