@@ -213,11 +213,11 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
               <div className="mt-4 space-y-3">
                 {/* Location header */}
                 <div className="flex items-center gap-2">
-                  <span className="font-serif text-lg font-semibold leading-tight">{location.name}</span>
+                  <span className="font-serif text-xl font-bold leading-tight tracking-tight">{location.name}</span>
                   {country && (
                     <>
                       <span className="text-muted-foreground">·</span>
-                      <span className="text-sm text-muted-foreground">{country.flagEmoji} {country.name}</span>
+                      <span className="text-sm text-muted-foreground font-medium">{country.flagEmoji} {country.name}</span>
                     </>
                   )}
                 </div>
@@ -225,27 +225,11 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
                 {/* Hero insight */}
                 {(() => {
                   const heroInsight = generateHeroInsight(weather, airQuality, earthquakes, eonetEvents, reliefAlerts);
-                  return (
-                    <div className={`px-3 py-2.5 rounded-lg border-l-4 ${
-                      heroInsight.variant === "red" ? "bg-pastel-red-bg/30 border-pastel-red-text" :
-                      heroInsight.variant === "yellow" ? "bg-pastel-yellow-bg/30 border-pastel-yellow-text" :
-                      heroInsight.variant === "green" ? "bg-pastel-green-bg/30 border-pastel-green-text" :
-                      "bg-pastel-blue-bg/30 border-pastel-blue-text"
-                    }`}>
-                      <div className={`text-[11px] font-medium leading-relaxed ${
-                        heroInsight.variant === "red" ? "text-pastel-red-text" :
-                        heroInsight.variant === "yellow" ? "text-pastel-yellow-text" :
-                        heroInsight.variant === "green" ? "text-pastel-green-text" :
-                        "text-pastel-blue-text"
-                      }`}>
-                        {heroInsight.message}
-                      </div>
-                    </div>
-                  );
+                  return <InsightCard variant={heroInsight.variant}>{heroInsight.message}</InsightCard>;
                 })()}
 
                 {/* Key metrics */}
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {/* Confort */}
                   {comfort && (
                     <div className="rounded-xl p-2 bg-secondary/40 text-center">
@@ -328,9 +312,7 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
               <LoadingSpinner />
             ) : (
               <>
-                {activeTab === "weather" && weather && (
-                  <WeatherTab weather={weather} narratives={narratives} airQuality={airQuality} />
-                )}
+                {activeTab === "weather" && <WeatherTab weather={weather} narratives={narratives} airQuality={airQuality} />}
                 {activeTab === "air" && <AirTab airQuality={airQuality} />}
                 {activeTab === "alerts" && (
                   <AlertsTab earthquakes={earthquakes} eonetEvents={eonetEvents} reliefAlerts={reliefAlerts} location={location} />
@@ -352,6 +334,29 @@ export default function LocationDrawer({ location, open, onOpenChange }: Locatio
 
 // ====== SHARED COMPONENTS ======
 
+function InsightCard({ children, variant = "blue" }: { children: React.ReactNode; variant?: "red" | "yellow" | "green" | "blue" }) {
+  const bgColors = {
+    red: "bg-pastel-red-bg/5",
+    yellow: "bg-pastel-yellow-bg/5",
+    green: "bg-pastel-green-bg/5",
+    blue: "bg-pastel-blue-bg/5"
+  };
+  const textColors = {
+    red: "text-pastel-red-text/60",
+    yellow: "text-pastel-yellow-text/60",
+    green: "text-pastel-green-text/60",
+    blue: "text-pastel-blue-text/60"
+  };
+
+  return (
+    <div className={`px-3 py-2.5 rounded-lg ${bgColors[variant]}`}>
+      <div className={`text-[11px] font-medium leading-relaxed ${textColors[variant]}`}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function LoadingSpinner() {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -361,9 +366,9 @@ function LoadingSpinner() {
   );
 }
 
-function SectionCard({ children, className = "", style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+function SectionCard({ children, className = "", style, bordered = true }: { children: React.ReactNode; className?: string; style?: React.CSSProperties; bordered?: boolean }) {
   return (
-    <div className={`border border-border rounded-xl p-4 mb-3 bg-card ${className}`} style={style}>
+    <div className={`${bordered ? "border border-border" : ""} rounded-xl p-4 mb-3 bg-card ${className}`} style={style}>
       {children}
     </div>
   );
@@ -371,11 +376,11 @@ function SectionCard({ children, className = "", style }: { children: React.Reac
 
 function Tag({ children, variant = "blue" }: { children: React.ReactNode; variant?: "blue" | "green" | "yellow" | "red" | "purple" }) {
   const styles = {
-    blue: "bg-pastel-blue-bg text-pastel-blue-text",
-    green: "bg-pastel-green-bg text-pastel-green-text",
-    yellow: "bg-pastel-yellow-bg text-pastel-yellow-text",
-    red: "bg-pastel-red-bg text-pastel-red-text",
-    purple: "bg-pastel-purple-bg text-pastel-purple-text",
+    blue: "bg-pastel-blue-bg/5 text-pastel-blue-text/40",
+    green: "bg-pastel-green-bg/5 text-pastel-green-text/40",
+    yellow: "bg-pastel-yellow-bg/5 text-pastel-yellow-text/40",
+    red: "bg-pastel-red-bg/5 text-pastel-red-text/40",
+    purple: "bg-pastel-purple-bg/5 text-pastel-purple-text/40",
   };
   return (
     <span className={`inline-block px-2.5 py-[3px] rounded-full text-[9px] uppercase tracking-[0.06em] font-semibold ${styles[variant]}`}>
@@ -569,7 +574,7 @@ function WeatherTab({ weather, narratives, airQuality }: { weather: WeatherData;
 
       {/* Narratives — progressive: show first 3, expand rest */}
       {narratives.length > 0 && (
-        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "40ms" }}>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "40ms" }} bordered={false}>
           <div className="flex items-center gap-2 mb-3">
             <Tag variant="blue">Analyse</Tag>
             <span className="text-[10px] text-muted-foreground">{narratives.length} signaux</span>
@@ -589,7 +594,7 @@ function WeatherTab({ weather, narratives, airQuality }: { weather: WeatherData;
 
       {/* Conditions bento grid - NIVEAU 2 expandable par défaut */}
       <Expandable label="Conditions actuelles" defaultOpen={false}>
-        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
+        <SectionCard className="animate-fade-in-up" style={{ animationDelay: "80ms" }} bordered={false}>
           <div className="grid grid-cols-3 gap-2">
             <MiniStat label="Humidite" value={`${weather.current.humidity}%`} accent={weather.current.humidity > 80} />
             <MiniStat label="Pression" value={`${Math.round(weather.current.pressure)} hPa`} sub={pressureInfo.trend} accent={weather.current.pressure < 1000} />
