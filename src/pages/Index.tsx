@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import MapView from "@/components/MapView";
 import SearchBar from "@/components/SearchBar";
 import LocationDrawer from "@/components/LocationDrawer";
+import AmbientBackground from "@/components/AmbientBackground";
 import { reverseGeocode, type GeoResult } from "@/lib/api";
 
 export default function Index() {
@@ -34,14 +35,21 @@ export default function Index() {
   }, []);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden">
+    <main className="relative w-full overflow-hidden" style={{ minHeight: "100dvh" }}>
+      {/* Atmosphère — sous tout, jamais cliquable */}
+      <AmbientBackground />
+
+      {/* Map — au-dessus de l'atmosphère mais avec opacité naturelle (positron est presque blanc) */}
       <MapView onMapClick={handleMapClick} flyTo={flyTo} markerPos={markerPos} />
+
+      {/* UI shell */}
       <SearchBar onSelect={handleSearchSelect} />
+
       <LocationDrawer
         location={selectedLocation}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
       />
-    </div>
+    </main>
   );
 }

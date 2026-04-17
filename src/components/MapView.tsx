@@ -64,17 +64,22 @@ export default function MapView({ onMapClick, flyTo, markerPos }: MapViewProps) 
     }
     if (!markerPos || !mapRef.current) return;
 
+    // Marker éditorial : pastille warm avec halo doux
     const el = document.createElement("div");
     el.className = "map-marker-dot";
-    Object.assign(el.style, {
-      width: "16px",
-      height: "16px",
-      borderRadius: "50%",
-      background: "hsl(220 10% 7%)",
-      border: "2.5px solid hsl(0 0% 100%)",
-      boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
-      transition: "transform 200ms cubic-bezier(0.16,1,0.3,1)",
-    });
+    el.style.cssText = `
+      position: relative;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: hsl(30 14% 10%);
+      border: 2px solid hsl(36 22% 99%);
+      box-shadow:
+        0 0 0 6px hsl(38 70% 88% / 0.45),
+        0 4px 14px -2px hsl(30 30% 20% / 0.25);
+      transition: transform 220ms cubic-bezier(0.16,1,0.3,1);
+      cursor: pointer;
+    `;
 
     markerRef.current = new maplibregl.Marker({ element: el })
       .setLngLat([markerPos.lon, markerPos.lat])
